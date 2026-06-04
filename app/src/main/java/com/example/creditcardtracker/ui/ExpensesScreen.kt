@@ -49,7 +49,7 @@ fun ExpensesScreen(
             Text(
                 text = "Expenses Log",
                 style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onBackground
             )
 
@@ -162,7 +162,7 @@ fun ExpenseItem(
                     Text(
                         text = expense.description,
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
@@ -180,7 +180,7 @@ fun ExpenseItem(
                 Text(
                     text = currencyFormat.format(expense.amount),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.error
                 )
 

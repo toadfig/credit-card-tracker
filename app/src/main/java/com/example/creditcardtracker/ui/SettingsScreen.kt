@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -42,7 +43,7 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("App Settings", fontWeight = FontWeight.Bold) },
+                title = { Text("App Settings", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
@@ -73,7 +74,7 @@ fun SettingsScreen(
                     Text(
                         text = "Security & Privacy",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
@@ -96,7 +97,7 @@ fun SettingsScreen(
                             ) {
                                 Icon(Icons.Outlined.Fingerprint, contentDescription = "Biometrics")
                                 Column {
-                                    Text("Biometric Authentication", fontWeight = FontWeight.Bold)
+                                    Text("Biometric Authentication", fontWeight = FontWeight.Medium)
                                     Text(
                                         "Use fingerprint or face recognition to unlock.",
                                         style = MaterialTheme.typography.bodySmall,
@@ -117,7 +118,7 @@ fun SettingsScreen(
                     Text(
                         text = "Data Management",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
@@ -221,11 +222,11 @@ fun SettingsScreen(
             if (showAlert) {
                 AlertDialog(
                     onDismissRequest = { showAlert = false },
-                    title = { Text("Backup Status", fontWeight = FontWeight.Bold) },
+                    title = { Text("Backup Status", fontWeight = FontWeight.SemiBold) },
                     text = { Text(alertText) },
                     confirmButton = {
                         TextButton(onClick = { showAlert = false }) {
-                            Text("OK", fontWeight = FontWeight.Bold)
+                            Text("OK", fontWeight = FontWeight.SemiBold)
                         }
                     }
                 )
@@ -247,7 +248,7 @@ fun PasswordPromptDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title, fontWeight = FontWeight.Bold) },
+        title = { Text(title, fontWeight = FontWeight.SemiBold) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -298,7 +299,7 @@ fun PasswordPromptDialog(
                     onConfirm(password)
                 }
             }) {
-                Text("Proceed", fontWeight = FontWeight.Bold)
+                Text("Proceed", fontWeight = FontWeight.SemiBold)
             }
         },
         dismissButton = {

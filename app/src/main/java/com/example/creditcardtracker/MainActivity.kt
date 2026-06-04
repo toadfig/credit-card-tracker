@@ -46,6 +46,7 @@ enum class OverlayScreen {
     Settings
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

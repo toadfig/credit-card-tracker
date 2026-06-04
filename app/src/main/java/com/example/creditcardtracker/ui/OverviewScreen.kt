@@ -241,14 +241,14 @@ fun CreditCardWidget(
                     Text(
                         text = card.bank.uppercase(),
                         color = Color.White,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.titleMedium,
-                        letterSpacing = 1.sp
+                        letterSpacing = 1.5.sp
                     )
                     Text(
                         text = card.name,
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontWeight = FontWeight.Medium,
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontWeight = FontWeight.Normal,
                         style = MaterialTheme.typography.labelMedium
                     )
                 }
@@ -262,7 +262,7 @@ fun CreditCardWidget(
                     Text(
                         text = "•••• •••• •••• ${card.cardNumber.takeLast(4)}",
                         color = Color.White,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.Medium,
                         style = MaterialTheme.typography.titleLarge,
                         letterSpacing = 2.sp
                     )
@@ -270,12 +270,12 @@ fun CreditCardWidget(
                     Box(
                         modifier = Modifier
                             .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, py = 2.dp)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
                             text = "CVV ${card.cvv}",
                             color = Color.White,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.Medium,
                             fontSize = 10.sp
                         )
                     }
@@ -292,20 +292,21 @@ fun CreditCardWidget(
                             Text(
                                 text = "CYCLE SPEND",
                                 color = Color.White.copy(alpha = 0.7f),
-                                style = MaterialTheme.typography.labelSmall
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Light
                             )
                             Text(
                                 text = currencyFormat.format(activeSpend),
                                 color = Color.White,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.titleLarge
                             )
                         }
 
                         Text(
                             text = "LIMIT: ${currencyFormat.format(card.creditLimit)}",
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White.copy(alpha = 0.75f),
+                            fontWeight = FontWeight.Light,
                             style = MaterialTheme.typography.labelMedium
                         )
                     }
@@ -398,7 +399,7 @@ fun SelectedCardDetailsView(
                     Text(
                         text = statusText,
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.Medium,
                         color = statusColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -415,13 +416,14 @@ fun SelectedCardDetailsView(
                     Text(
                         text = "Current Billing Cycle",
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "${dateFormat.format(cycleRange.first)} - ${dateFormat.format(cycleRange.second)}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Light
                     )
                 }
                 

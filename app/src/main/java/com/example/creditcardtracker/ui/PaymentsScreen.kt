@@ -49,7 +49,7 @@ fun PaymentsScreen(
             Text(
                 text = "Payments History",
                 style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onBackground
             )
 
@@ -152,7 +152,7 @@ fun PaymentItem(
                     Text(
                         text = if (payment.notes.isBlank()) "Statement Payment" else payment.notes,
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
@@ -170,7 +170,7 @@ fun PaymentItem(
                 Text(
                     text = currencyFormat.format(payment.amount),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
                 )
 
