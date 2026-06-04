@@ -1,0 +1,34 @@
+package com.example.creditcardtracker.theme
+
+import androidx.compose.ui.graphics.Color
+
+// Premium Vault M3 Color Palette
+val md_theme_light_primary = Color(0xFF006699)
+val md_theme_light_onPrimary = Color(0xFFFFFFFF)
+val md_theme_light_primaryContainer = Color(0xFFD0E4FF)
+val md_theme_light_onPrimaryContainer = Color(0xFF001D35)
+val md_theme_light_secondary = Color(0xFF526070)
+val md_theme_light_onSecondary = Color(0xFFFFFFFF)
+val md_theme_light_secondaryContainer = Color(0xFFD6E4F7)
+val md_theme_light_onSecondaryContainer = Color(0xFF0F1D2A)
+val md_theme_light_background = Color(0xFFFAF9F6) // Warm off-white
+val md_theme_light_onBackground = Color(0xFF191C1E)
+val md_theme_light_surface = Color(0xFFFAF9F6)
+val md_theme_light_onSurface = Color(0xFF191C1E)
+val md_theme_light_surfaceVariant = Color(0xFFDFE2E6)
+val md_theme_light_onSurfaceVariant = Color(0xFF43474B)
+
+val md_theme_dark_primary = Color(0xFF00B4D8)
+val md_theme_dark_onPrimary = Color(0xFF003554)
+val md_theme_dark_primaryContainer = Color(0xFF004D74)
+val md_theme_dark_onPrimaryContainer = Color(0xFFD0E4FF)
+val md_theme_dark_secondary = Color(0xFFBAC8DB)
+val md_theme_dark_onSecondary = Color(0xFF243140)
+val md_theme_dark_secondaryContainer = Color(0xFF3B4858)
+val md_theme_dark_onSecondaryContainer = Color(0xFFD6E4F7)
+val md_theme_dark_background = Color(0xFF0A0F1D) // Deep rich dark blue
+val md_theme_dark_onBackground = Color(0xFFE2E2E6)
+val md_theme_dark_surface = Color(0xFF0D1527)
+val md_theme_dark_onSurface = Color(0xFFE2E2E6)
+val md_theme_dark_surfaceVariant = Color(0xFF43474B)
+val md_theme_dark_onSurfaceVariant = Color(0xFFC3C7CC)
