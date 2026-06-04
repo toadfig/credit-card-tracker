@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.*
@@ -121,7 +122,7 @@ fun ExpenseItem(
     val categoryIcon = when (expense.category) {
         "Food" -> Icons.Outlined.Restaurant
         "Transit" -> Icons.Outlined.DirectionsCar
-        "Bills" -> Icons.Outlined.ReceiptLong
+        "Bills" -> Icons.AutoMirrored.Outlined.ReceiptLong
         "Shopping" -> Icons.Outlined.ShoppingBag
         "Entertainment" -> Icons.Outlined.LocalPlay
         else -> Icons.Outlined.Category

@@ -10,8 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Lock
@@ -35,7 +35,7 @@ import com.example.creditcardtracker.theme.animatedVaultGradient
 import com.example.creditcardtracker.ui.*
 
 enum class AppTab(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Expenses("Expenses", Icons.Default.List),
+    Expenses("Expenses", Icons.AutoMirrored.Filled.List),
     Overview("Overview", Icons.Default.Home),
     Payments("Payments", Icons.Default.Payments)
 }
@@ -115,7 +115,7 @@ class MainActivity : FragmentActivity() {
                                                 )
                                             }
                                         },
-                                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                                        colors = TopAppBarDefaults.topAppBarColors(
                                             containerColor = Color.Transparent,
                                             titleContentColor = MaterialTheme.colorScheme.onBackground
                                         )

@@ -455,7 +455,7 @@ fun SelectedCardDetailsView(
                 }
             }
 
-            Divider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
 
             // Fees & Annual redemption criteria
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -36,9 +36,9 @@ class DatabaseHelper(private val context: Context) {
             val decryptedBytes = CryptoManager.decryptLocal(encryptedBytes)
             val jsonString = String(decryptedBytes, Charsets.UTF_8)
             val data = gson.fromJson(jsonString, AppBackupData::class.java)
-            cards = data.cards?.toMutableList() ?: mutableListOf()
-            expenses = data.expenses?.toMutableList() ?: mutableListOf()
-            payments = data.payments?.toMutableList() ?: mutableListOf()
+            cards = data.cards.toMutableList()
+            expenses = data.expenses.toMutableList()
+            payments = data.payments.toMutableList()
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Failed to load database: ${e.message}")
             cards = mutableListOf()
@@ -83,9 +83,9 @@ class DatabaseHelper(private val context: Context) {
             val jsonString = String(decryptedBytes, Charsets.UTF_8)
             val data = gson.fromJson(jsonString, AppBackupData::class.java)
             
-            cards = data.cards?.toMutableList() ?: mutableListOf()
-            expenses = data.expenses?.toMutableList() ?: mutableListOf()
-            payments = data.payments?.toMutableList() ?: mutableListOf()
+            cards = data.cards.toMutableList()
+            expenses = data.expenses.toMutableList()
+            payments = data.payments.toMutableList()
             saveData()
             true
         } catch (e: Exception) {
