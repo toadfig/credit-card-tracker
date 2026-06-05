@@ -106,7 +106,6 @@ fun Modifier.vaultGlass(
     )
 
     return this
-        .blur(16.dp)
         .vaultGlow(color = glowColor, borderRadius = borderRadius)
         .border(width = 1.dp, brush = borderBrush, shape = RoundedCornerShape(borderRadius))
         .clip(RoundedCornerShape(borderRadius))
