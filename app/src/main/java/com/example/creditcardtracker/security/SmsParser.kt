@@ -49,4 +49,33 @@ object SmsParser {
         }
         return "Unknown Merchant"
     }
+
+    fun parseCategory(merchant: String, body: String): String {
+        val mClean = merchant.uppercase()
+        val bClean = body.uppercase()
+        
+        return when {
+            mClean.contains("FOODPANDA") || mClean.contains("DOMINOS") || mClean.contains("PIZZA") || 
+                    mClean.contains("BURGER") || mClean.contains("REST") || mClean.contains("DINE") || 
+                    mClean.contains("KFC") || mClean.contains("PATRON") || bClean.contains("FOOD") -> "Food & Dining"
+            
+            mClean.contains("SHWAPNO") || mClean.contains("UNIMART") || mClean.contains("AGORA") || 
+                    mClean.contains("MEENA") || mClean.contains("GROCERY") || mClean.contains("SUPER") || 
+                    bClean.contains("GROCERY") -> "Groceries"
+            
+            mClean.contains("UBER") || mClean.contains("PATHAO") || mClean.contains("SHOHOZ") || 
+                    mClean.contains("TRAIN") || mClean.contains("RAILWAY") || mClean.contains("FLIGHT") ||
+                    mClean.contains("BIMAN") || mClean.contains("AIRWAYS") || mClean.contains("CAR") -> "Transportation"
+            
+            mClean.contains("DARAZ") || mClean.contains("AMAZON") || mClean.contains("ALIEXPRESS") || 
+                    mClean.contains("SHEBA") || mClean.contains("SHOP") || mClean.contains("PAYPAL") || 
+                    mClean.contains("E-COM") || mClean.contains("GIFT") -> "Shopping"
+            
+            mClean.contains("DESCO") || mClean.contains("WASA") || mClean.contains("DPDC") || 
+                    mClean.contains("BTCL") || mClean.contains("BILL") || bClean.contains("UTILITY") || 
+                    bClean.contains("ELECTRICITY") -> "Utilities"
+            
+            else -> "Others"
+        }
+    }
 }

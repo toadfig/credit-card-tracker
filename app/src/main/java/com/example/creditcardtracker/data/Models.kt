@@ -20,7 +20,11 @@ data class CreditCard(
     val isSmsTrackingEnabled: Boolean = false,
     val smsSender: String = "",
     val cardType: String? = "Visa",
-    val cardTier: String? = "Classic"
+    val cardTier: String? = "Classic",
+    val annualLoungeQuota: Int = 0,
+    val cashbackRate: Double = 0.0,
+    val rewardPointsRate: Double = 0.0, // Points per unit spend
+    val bankHelpline: String = ""
 ) {
     val safeCardType: String get() = cardType ?: "Visa"
     val safeCardTier: String get() = cardTier ?: "Classic"
@@ -32,7 +36,9 @@ data class Expense(
     val amount: Double,
     val category: String,
     val description: String,
-    val date: Long
+    val date: Long,
+    val currency: String = "BDT",
+    val exchangeRate: Double = 1.0
 )
 
 data class Payment(
@@ -43,8 +49,41 @@ data class Payment(
     val notes: String
 )
 
+data class Subscription(
+    val id: String = UUID.randomUUID().toString(),
+    val cardId: String,
+    val name: String,
+    val amount: Double,
+    val billingDay: Int,
+    val category: String,
+    val isActive: Boolean = true
+)
+
+data class LoungeVisit(
+    val id: String = UUID.randomUUID().toString(),
+    val cardId: String,
+    val loungeName: String,
+    val airport: String,
+    val date: Long,
+    val guestsCount: Int
+)
+
+data class EmiPlan(
+    val id: String = UUID.randomUUID().toString(),
+    val cardId: String,
+    val merchant: String,
+    val totalAmount: Double,
+    val monthlyInstallment: Double,
+    val monthsDuration: Int,
+    val startDate: Long,
+    val isActive: Boolean = true
+)
+
 data class AppBackupData(
     val cards: List<CreditCard> = emptyList(),
     val expenses: List<Expense> = emptyList(),
-    val payments: List<Payment> = emptyList()
+    val payments: List<Payment> = emptyList(),
+    val subscriptions: List<Subscription> = emptyList(),
+    val loungeVisits: List<LoungeVisit> = emptyList(),
+    val emiPlans: List<EmiPlan> = emptyList()
 )

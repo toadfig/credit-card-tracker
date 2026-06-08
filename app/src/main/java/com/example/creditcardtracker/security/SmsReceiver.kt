@@ -47,13 +47,14 @@ class SmsReceiver : BroadcastReceiver() {
         }
 
         val merchant = SmsParser.parseMerchant(body)
+        val category = SmsParser.parseCategory(merchant, body)
 
         // Insert Expense for each matching card
         for (card in matchedCards) {
             val newExpense = Expense(
                 cardId = card.id,
                 amount = amount,
-                category = "Others",
+                category = category,
                 description = "Auto SMS: $merchant",
                 date = timestamp
             )

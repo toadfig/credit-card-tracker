@@ -1,5 +1,8 @@
 package com.example.creditcardtracker.ui
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,25 +11,30 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.creditcardtracker.data.CreditCard
+import com.example.creditcardtracker.data.EmiPlan
+import com.example.creditcardtracker.data.LoungeVisit
 import com.example.creditcardtracker.theme.VaultUiTokens
 import com.example.creditcardtracker.theme.vaultGlass
 import com.example.creditcardtracker.theme.vaultGlow
@@ -50,7 +58,6 @@ fun OverviewScreen(
             .padding(16.dp)
     ) {
         if (cards.isEmpty()) {
-            // Empty State
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -95,7 +102,6 @@ fun OverviewScreen(
                 }
             }
         } else {
-            // Cards Dashboard
             val currentCard = cards.getOrNull(selectedIndex) ?: cards[0]
             val lazyListState = rememberLazyListState()
 
@@ -103,7 +109,6 @@ fun OverviewScreen(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Title and Quick Summary
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -124,7 +129,6 @@ fun OverviewScreen(
                     }
                 }
 
-                // Horizontal snap scrolling card list
                 LazyRow(
                     state = lazyListState,
                     flingBehavior = rememberSnapFlingBehavior(lazyListState = lazyListState),
@@ -141,7 +145,6 @@ fun OverviewScreen(
                     }
                 }
 
-                // Indicator dots
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center
@@ -160,7 +163,6 @@ fun OverviewScreen(
                     }
                 }
 
-                // Selected Card Details Card
                 SelectedCardDetailsView(
                     card = currentCard,
                     viewModel = viewModel,
@@ -168,7 +170,6 @@ fun OverviewScreen(
                 )
             }
 
-            // Floating action button inside Overview
             FloatingActionButton(
                 onClick = onManageCardsClick,
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -220,6 +221,7 @@ fun SelectedCardDetailsView(
     viewModel: TrackerViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val activeSpend = viewModel.getSpendInCurrentCycle(card)
     val activePayments = viewModel.getPaymentsInCurrentCycle(card)
     val remainingLimit = (card.creditLimit - activeSpend).coerceAtLeast(0.0)
@@ -231,7 +233,6 @@ fun SelectedCardDetailsView(
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale.US)
 
-    // Calculate days remaining
     val today = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0)
         set(Calendar.MINUTE, 0)
@@ -240,6 +241,15 @@ fun SelectedCardDetailsView(
     }.timeInMillis
     
     val daysRemaining = ((dueDateMillis - today) / (1000 * 60 * 60 * 24)).toInt()
+
+    var showLoungeLogDialog by remember { mutableStateOf(false) }
+    var showEmiLogDialog by remember { mutableStateOf(false) }
+
+    // Interest payment simulator state
+    var simulatedPaymentFraction by remember { mutableStateOf(1f) }
+    val simulatedPaymentAmount = unpaidStatementBalance * simulatedPaymentFraction
+    val simulatedUnpaidAmount = (unpaidStatementBalance - simulatedPaymentAmount).coerceAtLeast(0.0)
+    val simulatedInterestCharge = simulatedUnpaidAmount * 0.025 // 2.5% finance charge estimate
 
     Card(
         modifier = modifier
@@ -250,7 +260,8 @@ fun SelectedCardDetailsView(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(20.dp),
+                .padding(20.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Due Date Banner
@@ -353,9 +364,221 @@ fun SelectedCardDetailsView(
                 }
             }
 
+            // Airport Lounge visits
+            if (card.annualLoungeQuota > 0) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                val visitsForCard = viewModel.loungeVisits.filter { it.cardId == card.id }
+                val totalGuests = visitsForCard.sumOf { it.guestsCount }
+                val visitsUsed = visitsForCard.size + totalGuests
+                val visitsLeft = (card.annualLoungeQuota - visitsUsed).coerceAtLeast(0)
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Airport Lounge Access",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        IconButton(onClick = { showLoungeLogDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Outlined.FlightTakeoff,
+                                contentDescription = "Log Lounge Visit",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Quota left: $visitsLeft / ${card.annualLoungeQuota} complimentary visits",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (visitsForCard.isNotEmpty()) {
+                                Text(
+                                    text = "Last logged visit on ${dateFormat.format(visitsForCard.last().date)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Active EMIs Section
+            val emiForCard = viewModel.emiPlans.filter { it.cardId == card.id && it.isActive }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Active Installments (EMI)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    IconButton(onClick = { showEmiLogDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Outlined.Add,
+                            contentDescription = "Add EMI Plan",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                if (emiForCard.isEmpty()) {
+                    Text(
+                        text = "No active installment plans on this card.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    emiForCard.forEach { emi ->
+                        // Calculate installment progress
+                        val emiStartCal = Calendar.getInstance().apply { timeInMillis = emi.startDate }
+                        val cycleStartCal = Calendar.getInstance().apply { timeInMillis = cycleRange.first }
+                        val yearsDiff = cycleStartCal.get(Calendar.YEAR) - emiStartCal.get(Calendar.YEAR)
+                        val monthsDiff = cycleStartCal.get(Calendar.MONTH) - emiStartCal.get(Calendar.MONTH) + (yearsDiff * 12)
+                        val currentMonth = (monthsDiff + 1).coerceIn(1, emi.monthsDuration)
+
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = emi.merchant,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = "Month $currentMonth of ${emi.monthsDuration} | Total: ${currencyFormat.format(emi.totalAmount)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    text = "${currencyFormat.format(emi.monthlyInstallment)}/mo",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Interest & Minimum Payment Simulator
+            if (unpaidStatementBalance > 0) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Interest & Minimum Simulator",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Text(
+                        text = "Slide to simulate partial payments and preview finance interest charges.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Slider(
+                        value = simulatedPaymentFraction,
+                        onValueChange = { simulatedPaymentFraction = it },
+                        valueRange = 0f..1f,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Simulated Payment", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(currencyFormat.format(simulatedPaymentAmount), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Est. Finance Interest (2.5%)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = if (simulatedInterestCharge > 0) currencyFormat.format(simulatedInterestCharge) else "None",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (simulatedInterestCharge > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Helpline shortcut
+            if (card.bankHelpline.isNotEmpty()) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Call,
+                                contentDescription = "Call Helpline",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Column {
+                                Text("Emergency Helpline", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text(card.bankHelpline, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Button(
+                            onClick = {
+                                try {
+                                    val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${card.bankHelpline}"))
+                                    context.startActivity(dialIntent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Helpline unavailable.", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text("Call", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+            }
 
             // Fees & Annual redemption criteria
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = "Fees & Redemptions",
@@ -424,13 +647,12 @@ fun SelectedCardDetailsView(
                     }
 
                     if (card.isFeeRedeemable) {
-                        // Progress to redemption
                         val target = card.feeRedemptionLimit
                         val progressPercent = if (card.feeRedemptionUnit == "Spend") {
-                            val activeYearSpend = activeSpend // Standard estimate based on active cycle or full db (simplicity uses activeSpend)
+                            val activeYearSpend = activeSpend
                             ((activeYearSpend / target) * 100).coerceIn(0.0, 100.0)
                         } else {
-                            0.0 // Points entry could be standalone (simply show target info)
+                            0.0
                         }
 
                         Surface(
@@ -455,7 +677,6 @@ fun SelectedCardDetailsView(
             }
 
             // Summary stats (unpaid / payments)
-            Spacer(modifier = Modifier.weight(1f))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -481,5 +702,118 @@ fun SelectedCardDetailsView(
                 }
             }
         }
+    }
+
+    if (showLoungeLogDialog) {
+        var loungeName by remember { mutableStateOf("") }
+        var airport by remember { mutableStateOf("") }
+        var guestsCount by remember { mutableStateOf("0") }
+
+        AlertDialog(
+            onDismissRequest = { showLoungeLogDialog = false },
+            title = { Text("Log Lounge Visit", fontWeight = FontWeight.SemiBold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = loungeName,
+                        onValueChange = { loungeName = it },
+                        label = { Text("Lounge Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = airport,
+                        onValueChange = { airport = it },
+                        label = { Text("Airport Code (e.g. DAC)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = guestsCount,
+                        onValueChange = { guestsCount = it.filter { char -> char.isDigit() } },
+                        label = { Text("Accompanying Guests") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (loungeName.isBlank() || airport.isBlank()) {
+                        Toast.makeText(context, "Fill in all fields.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        val guests = guestsCount.toIntOrNull() ?: 0
+                        viewModel.addLoungeVisit(card.id, loungeName.trim(), airport.uppercase().trim(), System.currentTimeMillis(), guests)
+                        showLoungeLogDialog = false
+                    }
+                }) {
+                    Text("Log Visit", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLoungeLogDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showEmiLogDialog) {
+        var merchant by remember { mutableStateOf("") }
+        var totalAmount by remember { mutableStateOf("") }
+        var durationMonths by remember { mutableStateOf("6") }
+
+        AlertDialog(
+            onDismissRequest = { showEmiLogDialog = false },
+            title = { Text("Add Installment Plan", fontWeight = FontWeight.SemiBold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = merchant,
+                        onValueChange = { merchant = it },
+                        label = { Text("Merchant/Vendor") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = totalAmount,
+                        onValueChange = { totalAmount = it },
+                        label = { Text("Total Purchase Amount") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = durationMonths,
+                        onValueChange = { durationMonths = it.filter { char -> char.isDigit() } },
+                        label = { Text("Duration (Months)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val total = totalAmount.toDoubleOrNull() ?: 0.0
+                    val duration = durationMonths.toIntOrNull() ?: 0
+                    if (merchant.isBlank() || total <= 0.0 || duration <= 0) {
+                        Toast.makeText(context, "Invalid input credentials.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        val monthly = total / duration
+                        viewModel.addEmiPlan(card.id, merchant.trim(), total, monthly, duration, System.currentTimeMillis())
+                        showEmiLogDialog = false
+                    }
+                }) {
+                    Text("Create Plan", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEmiLogDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

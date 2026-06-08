@@ -53,8 +53,10 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            CreditCardTrackerTheme {
-                val viewModel: TrackerViewModel = viewModel()
+            val viewModel: TrackerViewModel = viewModel()
+            val dynamicColorEnabled by viewModel.isDynamicColorEnabled
+
+            CreditCardTrackerTheme(dynamicColor = dynamicColorEnabled) {
                 var currentTab by remember { mutableStateOf(AppTab.Overview) }
                 var overlayScreen by remember { mutableStateOf(OverlayScreen.None) }
                 

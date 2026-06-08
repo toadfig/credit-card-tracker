@@ -16,7 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.AddCard
-import androidx.compose.material.icons.outlined.Sms
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -75,6 +75,31 @@ val CARD_TIERS = listOf(
     "Emerald"
 )
 
+fun getBankHelplineDefault(bankName: String): String {
+    val b = bankName.uppercase()
+    return when {
+        b.contains("BRAC") -> "16221"
+        b.contains("CITY") -> "16234"
+        b.contains("EASTERN") || b.contains("EBL") -> "16230"
+        b.contains("CHARTERED") || b.contains("SCB") -> "16233"
+        b.contains("MUTUAL") || b.contains("MTB") -> "16219"
+        b.contains("DUTCH") || b.contains("DBBL") -> "16216"
+        b.contains("HSBC") -> "16196"
+        b.contains("LANKABANGLA") -> "16273"
+        b.contains("SONALI") -> "16639"
+        b.contains("JANATA") -> "16256"
+        b.contains("PRIME") -> "16218"
+        b.contains("DHAKA") -> "16203"
+        b.contains("BANK ASIA") -> "16205"
+        b.contains("TRUST") -> "16201"
+        b.contains("UNITED") || b.contains("UCB") -> "16236"
+        b.contains("SOUTHEAST") -> "16206"
+        b.contains("IPDC") -> "16519"
+        b.contains("IDLC") -> "16409"
+        else -> ""
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageCardsScreen(
@@ -84,7 +109,7 @@ fun ManageCardsScreen(
 ) {
     val cards = viewModel.cards
     var showAddDialog by remember { mutableStateOf(false) }
-    var smsConfigCard by remember { mutableStateOf<CreditCard?>(null) }
+    var configCard by remember { mutableStateOf<CreditCard?>(null) }
 
     Scaffold(
         topBar = {
@@ -139,7 +164,7 @@ fun ManageCardsScreen(
                     items(cards) { card ->
                         ManageCardItem(
                             card = card,
-                            onConfigureSms = { smsConfigCard = card },
+                            onConfigure = { configCard = card },
                             onDelete = { viewModel.deleteCard(card.id) }
                         )
                     }
@@ -149,7 +174,7 @@ fun ManageCardsScreen(
             if (showAddDialog) {
                 AddCardDialog(
                     onDismiss = { showAddDialog = false },
-                    onConfirm = { name, bank, number, expiry, cvv, limit, statementDay, dueDay, fee, isRedeemable, redLimit, redUnit, colorIdx, isSmsTrackingEnabled, smsSender, cardType, cardTier ->
+                    onConfirm = { name, bank, number, expiry, cvv, limit, statementDay, dueDay, fee, isRedeemable, redLimit, redUnit, colorIdx, isSmsTrackingEnabled, smsSender, cardType, cardTier, lounge, cashback, points, helpline ->
                         viewModel.addCard(
                             name = name,
                             bank = bank,
@@ -167,18 +192,22 @@ fun ManageCardsScreen(
                             isSmsTrackingEnabled = isSmsTrackingEnabled,
                             smsSender = smsSender,
                             cardType = cardType,
-                            cardTier = cardTier
+                            cardTier = cardTier,
+                            annualLoungeQuota = lounge,
+                            cashbackRate = cashback,
+                            rewardPointsRate = points,
+                            bankHelpline = helpline
                         )
                         showAddDialog = false
                     }
                 )
             }
 
-            smsConfigCard?.let { card ->
-                SmsTrackingConfigDialog(
+            configCard?.let { card ->
+                CardConfigurationDialog(
                     card = card,
                     viewModel = viewModel,
-                    onDismiss = { smsConfigCard = null }
+                    onDismiss = { configCard = null }
                 )
             }
         }
@@ -188,7 +217,7 @@ fun ManageCardsScreen(
 @Composable
 fun ManageCardItem(
     card: CreditCard,
-    onConfigureSms: () -> Unit,
+    onConfigure: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -209,7 +238,6 @@ fun ManageCardItem(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                // Mini Styled card theme block
                 Box(
                     modifier = Modifier
                         .size(56.dp, 36.dp)
@@ -240,29 +268,45 @@ fun ManageCardItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "${card.safeCardTier.uppercase()} | Day ${card.statementDay}",
+                            text = "${card.safeCardTier.uppercase()}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (card.annualLoungeQuota > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                                        RoundedCornerShape(3.dp)
+                                    )
+                                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                            ) {
+                                Text(
+                                    text = "Lounge: ${card.annualLoungeQuota}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 8.sp,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
                         if (card.isSmsTrackingEnabled) {
                             Box(
                                 modifier = Modifier
                                     .background(
                                         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                                        RoundedCornerShape(4.dp)
+                                        RoundedCornerShape(3.dp)
                                     )
-                                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                                    .padding(horizontal = 4.dp, vertical = 1.dp)
                             ) {
                                 Text(
                                     text = "SMS: ${card.smsSender}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    fontSize = 9.sp,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Medium
+                                    fontSize = 8.sp,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
@@ -274,11 +318,11 @@ fun ManageCardItem(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                IconButton(onClick = onConfigureSms) {
+                IconButton(onClick = onConfigure) {
                     Icon(
-                        imageVector = Icons.Outlined.Sms,
-                        contentDescription = "SMS Setup",
-                        tint = if (card.isSmsTrackingEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        imageVector = Icons.Outlined.Settings,
+                        contentDescription = "Configure Features",
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
 
@@ -397,7 +441,8 @@ fun AddCardDialog(
         name: String, bank: String, number: String, expiry: String, cvv: String,
         limit: Double, statementDay: Int, dueDay: Int, fee: Double,
         isRedeemable: Boolean, redLimit: Double, redUnit: String, colorIdx: Int,
-        isSmsTrackingEnabled: Boolean, smsSender: String, cardType: String, cardTier: String
+        isSmsTrackingEnabled: Boolean, smsSender: String, cardType: String, cardTier: String,
+        annualLoungeQuota: Int, cashbackRate: Double, rewardPointsRate: Double, bankHelpline: String
     ) -> Unit
 ) {
     val context = LocalContext.current
@@ -420,22 +465,26 @@ fun AddCardDialog(
     var cardType by remember { mutableStateOf("Visa") }
     var cardTier by remember { mutableStateOf("Classic") }
 
+    // Advanced fields
+    var annualLoungeQuota by remember { mutableStateOf("") }
+    var cashbackRate by remember { mutableStateOf("") }
+    var rewardPointsRate by remember { mutableStateOf("") }
+    var bankHelpline by remember { mutableStateOf("") }
+
     // SMS Tracking states
     var isSmsTrackingEnabled by remember { mutableStateOf(false) }
     var smsSender by remember { mutableStateOf("") }
 
     var errorText by remember { mutableStateOf("") }
 
-    // Fetch suggested SMS senders
-    val recentSmsSenders = remember(isSmsTrackingEnabled) {
-        if (isSmsTrackingEnabled) {
-            // Check permission first (handled in LaunchedEffect, but fetch what we can)
-            try {
-                BANGLADESH_ISSUERS // fallback hints or query
-            } catch (e: Exception) {
-                emptyList()
+    // Auto-update default helpline when bank changes
+    LaunchedEffect(bank) {
+        if (bank.isNotEmpty()) {
+            val defaultHelp = getBankHelplineDefault(bank)
+            if (defaultHelp.isNotEmpty() && bankHelpline.isEmpty()) {
+                bankHelpline = defaultHelp
             }
-        } else emptyList()
+        }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -635,6 +684,65 @@ fun AddCardDialog(
                     }
                 }
 
+                // Advanced limits/helper features inputs
+                item {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Complimentary Lounges & Helplines", fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = annualLoungeQuota,
+                            onValueChange = { annualLoungeQuota = it.filter { char -> char.isDigit() }.take(2) },
+                            label = { Text("Annual Lounge Visits") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = bankHelpline,
+                            onValueChange = { bankHelpline = it },
+                            label = { Text("Helpline Phone") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            singleLine = true,
+                            modifier = Modifier.weight(1.5f)
+                        )
+                    }
+                }
+
+                item {
+                    Text("Cashbacks & Reward Rates", fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = cashbackRate,
+                            onValueChange = { cashbackRate = it },
+                            label = { Text("Cashback (%)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = rewardPointsRate,
+                            onValueChange = { rewardPointsRate = it },
+                            label = { Text("Reward Points Rate") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            modifier = Modifier.weight(1.2f)
+                        )
+                    }
+                }
+
                 item {
                     OutlinedTextField(
                         value = annualFee,
@@ -779,6 +887,10 @@ fun AddCardDialog(
                 val limVal = limit.toDoubleOrNull() ?: 0.0
                 val feeVal = annualFee.toDoubleOrNull() ?: 0.0
                 val redLim = feeRedemptionLimit.toDoubleOrNull() ?: 0.0
+                
+                val lQuota = annualLoungeQuota.toIntOrNull() ?: 0
+                val cbRate = cashbackRate.toDoubleOrNull() ?: 0.0
+                val rwPoints = rewardPointsRate.toDoubleOrNull() ?: 0.0
 
                 if (bank.isBlank() || name.isBlank() || number.isBlank() || expiry.isBlank() || cvv.isBlank()) {
                     errorText = "Please fill in all card credentials."
@@ -794,7 +906,8 @@ fun AddCardDialog(
                     onConfirm(
                         name, bank, number, expiry, cvv, limVal, stmtDay, dDay, feeVal,
                         isFeeRedeemable, redLim, feeRedemptionUnit, selectedColorIndex,
-                        isSmsTrackingEnabled, smsSender.trim(), cardType, cardTier
+                        isSmsTrackingEnabled, smsSender.trim(), cardType, cardTier,
+                        lQuota, cbRate, rwPoints, bankHelpline.trim()
                     )
                 }
             }) {
@@ -811,17 +924,22 @@ fun AddCardDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SmsTrackingConfigDialog(
+fun CardConfigurationDialog(
     card: CreditCard,
     viewModel: TrackerViewModel,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    var isEnabled by remember { mutableStateOf(card.isSmsTrackingEnabled) }
-    var smsSender by remember { mutableStateOf(card.smsSender) }
 
-    val recentSenders = remember(isEnabled) {
-        if (isEnabled) viewModel.getRecentSmsSenders(context) else emptyList()
+    var isSmsEnabled by remember { mutableStateOf(card.isSmsTrackingEnabled) }
+    var smsSender by remember { mutableStateOf(card.smsSender) }
+    var annualLoungeQuota by remember { mutableStateOf(card.annualLoungeQuota.toString()) }
+    var bankHelpline by remember { mutableStateOf(card.bankHelpline) }
+    var cashbackRate by remember { mutableStateOf(card.cashbackRate.toString()) }
+    var rewardPointsRate by remember { mutableStateOf(card.rewardPointsRate.toString()) }
+
+    val recentSenders = remember(isSmsEnabled) {
+        if (isSmsEnabled) viewModel.getRecentSmsSenders(context) else emptyList()
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -840,8 +958,8 @@ fun SmsTrackingConfigDialog(
         androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
     } else true
 
-    LaunchedEffect(isEnabled) {
-        if (isEnabled) {
+    LaunchedEffect(isSmsEnabled) {
+        if (isSmsEnabled) {
             val permissionsNeeded = mutableListOf<String>()
             if (!hasReceive) permissionsNeeded.add(android.Manifest.permission.RECEIVE_SMS)
             if (!hasRead) permissionsNeeded.add(android.Manifest.permission.READ_SMS)
@@ -856,71 +974,136 @@ fun SmsTrackingConfigDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("SMS Auto-Tracking Setup", fontWeight = FontWeight.SemiBold) },
+        title = { Text("Configure Features", fontWeight = FontWeight.SemiBold) },
         text = {
-            Column(
+            LazyColumn(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(
-                    text = "Configure auto expense extraction for ${card.bank} - ${card.name}.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Enable SMS Tracking")
-                    Switch(
-                        checked = isEnabled,
-                        onCheckedChange = { isEnabled = it }
+                item {
+                    Text(
+                        text = "Customize features for ${card.bank} - ${card.name}.",
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
 
-                if (isEnabled) {
-                    Text(
-                        text = "Identify the sender address of your bank alerts (e.g. BRACBANK, CityBank).",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                // SMS Auto-Tracking Section
+                item {
+                    Text("SMS Auto-Tracking", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Enable SMS Tracking")
+                        Switch(
+                            checked = isSmsEnabled,
+                            onCheckedChange = { isSmsEnabled = it }
+                        )
+                    }
+                }
 
-                    OutlinedTextField(
-                        value = smsSender,
-                        onValueChange = { smsSender = it },
-                        label = { Text("SMS Sender ID") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                if (isSmsEnabled) {
+                    item {
+                        OutlinedTextField(
+                            value = smsSender,
+                            onValueChange = { smsSender = it },
+                            label = { Text("SMS Sender ID") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
 
-                    if (recentSenders.isNotEmpty()) {
-                        Text("Suggested from your inbox:", style = MaterialTheme.typography.labelMedium)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            recentSenders.take(3).forEach { sender ->
-                                SuggestionChip(
-                                    onClick = { smsSender = sender },
-                                    label = { Text(sender) }
-                                )
+                    item {
+                        if (recentSenders.isNotEmpty()) {
+                            Text("Suggested from your inbox:", style = MaterialTheme.typography.labelMedium)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                recentSenders.take(3).forEach { sender ->
+                                    SuggestionChip(
+                                        onClick = { smsSender = sender },
+                                        label = { Text(sender) }
+                                    )
+                                }
+                            }
+                        } else {
+                            Text("Common bank formats:", style = MaterialTheme.typography.labelSmall)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf("BRACBANK", "CityBank", "SCB").forEach { sender ->
+                                    SuggestionChip(
+                                        onClick = { smsSender = sender },
+                                        label = { Text(sender) }
+                                    )
+                                }
                             }
                         }
-                    } else {
-                        // Fallback common bank sender formats
-                        Text("Common formats:", style = MaterialTheme.typography.labelSmall)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf("BRACBANK", "CityBank", "SCB").forEach { sender ->
-                                SuggestionChip(
-                                    onClick = { smsSender = sender },
-                                    label = { Text(sender) }
-                                )
-                            }
-                        }
+                    }
+                }
+
+                // Lounges & Helpline Section
+                item {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Airport Lounge & Helplines", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = annualLoungeQuota,
+                            onValueChange = { annualLoungeQuota = it.filter { char -> char.isDigit() }.take(2) },
+                            label = { Text("Annual Lounge Visits") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = bankHelpline,
+                            onValueChange = { bankHelpline = it },
+                            label = { Text("Helpline Phone") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            singleLine = true,
+                            modifier = Modifier.weight(1.5f)
+                        )
+                    }
+                }
+
+                // Rewards & Cashbacks
+                item {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Cashbacks & Reward Rates", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = cashbackRate,
+                            onValueChange = { cashbackRate = it },
+                            label = { Text("Cashback (%)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = rewardPointsRate,
+                            onValueChange = { rewardPointsRate = it },
+                            label = { Text("Reward Points Rate") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            modifier = Modifier.weight(1.2f)
+                        )
                     }
                 }
             }
@@ -928,10 +1111,22 @@ fun SmsTrackingConfigDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    if (isEnabled && smsSender.isBlank()) {
+                    if (isSmsEnabled && smsSender.isBlank()) {
                         Toast.makeText(context, "Please specify an SMS Sender ID.", Toast.LENGTH_SHORT).show()
                     } else {
-                        viewModel.updateCardSmsTracking(card.id, isEnabled, smsSender.trim())
+                        val quotaVal = annualLoungeQuota.toIntOrNull() ?: 0
+                        val cbVal = cashbackRate.toDoubleOrNull() ?: 0.0
+                        val rwVal = rewardPointsRate.toDoubleOrNull() ?: 0.0
+                        
+                        viewModel.updateCardSettings(
+                            cardId = card.id,
+                            isSmsEnabled = isSmsEnabled,
+                            smsSender = smsSender.trim(),
+                            loungeQuota = quotaVal,
+                            cashbackRate = cbVal,
+                            rewardPointsRate = rwVal,
+                            helpline = bankHelpline.trim()
+                        )
                         onDismiss()
                     }
                 }

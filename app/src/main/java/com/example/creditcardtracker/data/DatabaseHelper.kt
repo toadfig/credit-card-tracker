@@ -19,6 +19,12 @@ class DatabaseHelper(private val context: Context) {
         private set
     var payments: MutableList<Payment> = mutableListOf()
         private set
+    var subscriptions: MutableList<Subscription> = mutableListOf()
+        private set
+    var loungeVisits: MutableList<LoungeVisit> = mutableListOf()
+        private set
+    var emiPlans: MutableList<EmiPlan> = mutableListOf()
+        private set
 
     init {
         loadData()
@@ -29,6 +35,9 @@ class DatabaseHelper(private val context: Context) {
             cards = mutableListOf()
             expenses = mutableListOf()
             payments = mutableListOf()
+            subscriptions = mutableListOf()
+            loungeVisits = mutableListOf()
+            emiPlans = mutableListOf()
             return
         }
         try {
@@ -39,17 +48,23 @@ class DatabaseHelper(private val context: Context) {
             cards = data.cards.toMutableList()
             expenses = data.expenses.toMutableList()
             payments = data.payments.toMutableList()
+            subscriptions = (data.subscriptions ?: emptyList()).toMutableList()
+            loungeVisits = (data.loungeVisits ?: emptyList()).toMutableList()
+            emiPlans = (data.emiPlans ?: emptyList()).toMutableList()
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Failed to load database: ${e.message}")
             cards = mutableListOf()
             expenses = mutableListOf()
             payments = mutableListOf()
+            subscriptions = mutableListOf()
+            loungeVisits = mutableListOf()
+            emiPlans = mutableListOf()
         }
     }
 
     fun saveData() {
         try {
-            val data = AppBackupData(cards, expenses, payments)
+            val data = AppBackupData(cards, expenses, payments, subscriptions, loungeVisits, emiPlans)
             val jsonString = gson.toJson(data)
             val rawBytes = jsonString.toByteArray(Charsets.UTF_8)
             val encryptedBytes = CryptoManager.encryptLocal(rawBytes)
@@ -61,7 +76,7 @@ class DatabaseHelper(private val context: Context) {
 
     fun exportBackup(outputStream: FileOutputStream, password: CharArray): Boolean {
         return try {
-            val data = AppBackupData(cards, expenses, payments)
+            val data = AppBackupData(cards, expenses, payments, subscriptions, loungeVisits, emiPlans)
             val jsonString = gson.toJson(data)
             val rawBytes = jsonString.toByteArray(Charsets.UTF_8)
             val encryptedBytes = CryptoManager.encryptWithPassword(rawBytes, password)
@@ -86,10 +101,13 @@ class DatabaseHelper(private val context: Context) {
             cards = data.cards.toMutableList()
             expenses = data.expenses.toMutableList()
             payments = data.payments.toMutableList()
+            subscriptions = (data.subscriptions ?: emptyList()).toMutableList()
+            loungeVisits = (data.loungeVisits ?: emptyList()).toMutableList()
+            emiPlans = (data.emiPlans ?: emptyList()).toMutableList()
             saveData()
             true
         } catch (e: Exception) {
-            Log.e("DatabaseHelper", "Failed to import backup: ${e.message}")
+            Log.e("DatabaseHelper", "Failed to import database: ${e.message}")
             false
         }
     }

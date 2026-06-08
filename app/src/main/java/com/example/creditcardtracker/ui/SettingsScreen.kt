@@ -1,28 +1,37 @@
 package com.example.creditcardtracker.ui
 
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.Fingerprint
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Restore
-import androidx.compose.material.icons.outlined.Save
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.creditcardtracker.data.CreditCard
+import com.example.creditcardtracker.data.Subscription
 import com.example.creditcardtracker.theme.vaultGlass
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.text.NumberFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,13 +41,20 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val cards = viewModel.cards
+    val subscriptions = viewModel.subscriptions
+
     var isBiometricEnabled by viewModel.isBiometricEnabled
+    var isDynamicColorEnabled by viewModel.isDynamicColorEnabled
 
     var showExportDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
+    var showAddSubDialog by remember { mutableStateOf(false) }
     
     var alertText by remember { mutableStateOf("") }
     var showAlert by remember { mutableStateOf(false) }
+
+    val currencyFormat = NumberFormat.getCurrencyInstance(Locale.US)
 
     Scaffold(
         topBar = {
@@ -69,10 +85,10 @@ fun SettingsScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Biometrics Section
+                // Security & Theme Section
                 item {
                     Text(
-                        text = "Security & Privacy",
+                        text = "Security & Visuals",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary,
@@ -84,36 +100,136 @@ fun SettingsScreen(
                             .vaultGlass(borderRadius = 16.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            // Biometric row
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Outlined.Fingerprint, contentDescription = "Biometrics")
-                                Column {
-                                    Text("Biometric Authentication", fontWeight = FontWeight.Medium)
-                                    Text(
-                                        "Use fingerprint or face recognition to unlock.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Outlined.Fingerprint, contentDescription = "Biometrics")
+                                    Column {
+                                        Text("Biometric Authentication", fontWeight = FontWeight.Medium)
+                                        Text(
+                                            "Unlock with fingerprint or face.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
+                                Switch(
+                                    checked = isBiometricEnabled,
+                                    onCheckedChange = { viewModel.setBiometricEnabled(it) }
+                                )
                             }
-                            Switch(
-                                checked = isBiometricEnabled,
-                                onCheckedChange = { viewModel.setBiometricEnabled(it) }
-                            )
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+
+                            // Dynamic Color row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Outlined.Palette, contentDescription = "Dynamic Color")
+                                    Column {
+                                        Text("Dynamic Color Theme", fontWeight = FontWeight.Medium)
+                                        Text(
+                                            "Match app colors with your system wallpaper.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Switch(
+                                    checked = isDynamicColorEnabled,
+                                    onCheckedChange = { viewModel.setDynamicColorEnabled(it) }
+                                )
+                            }
                         }
                     }
                 }
 
-                // Backup Section
+                // Subscriptions Manager Section
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Subscriptions Manager",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (cards.isNotEmpty()) {
+                            TextButton(onClick = { showAddSubDialog = true }) {
+                                Text("Add", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                if (subscriptions.isEmpty()) {
+                    item {
+                        Text(
+                            text = "No recurring subscriptions configured yet.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    items(subscriptions) { sub ->
+                        val linkedCard = cards.find { it.id == sub.cardId }
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(sub.name, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        text = "${linkedCard?.bank?.uppercase() ?: "Unknown Card"} • Day ${sub.billingDay} of Month",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = currencyFormat.format(sub.amount),
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    IconButton(onClick = { viewModel.deleteSubscription(sub.id) }) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Delete,
+                                            contentDescription = "Delete Subscription",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Data Management Section
                 item {
                     Text(
                         text = "Data Management",
@@ -128,16 +244,13 @@ fun SettingsScreen(
                             .vaultGlass(borderRadius = 16.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            // Backup Info
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(
-                                text = "Encrypt and export or import data. Backups are encrypted with a password and saved to your device's external storage folder.",
+                                text = "Secure, offline database operations. Exports are fully encrypted with a passphrase.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 16.dp)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
 
-                            // Export Button
                             Button(
                                 onClick = { showExportDialog = true },
                                 modifier = Modifier.fillMaxWidth()
@@ -147,9 +260,6 @@ fun SettingsScreen(
                                 Text("Export Encrypted Backup")
                             }
 
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Import Button
                             OutlinedButton(
                                 onClick = { showImportDialog = true },
                                 modifier = Modifier.fillMaxWidth()
@@ -157,6 +267,26 @@ fun SettingsScreen(
                                 Icon(Icons.Outlined.Restore, contentDescription = "Import")
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Import Encrypted Backup")
+                            }
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+
+                            // CSV Export button
+                            OutlinedButton(
+                                onClick = {
+                                    val csvPath = viewModel.exportToCsv(context)
+                                    if (csvPath != null) {
+                                        alertText = "CSV spreadsheet exported successfully to Downloads folder:\n\n$csvPath"
+                                    } else {
+                                        alertText = "Failed to export CSV file. Verify storage permissions."
+                                    }
+                                    showAlert = true
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Outlined.TableChart, contentDescription = "Export CSV")
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Export CSV Transactions")
                             }
                         }
                     }
@@ -192,7 +322,7 @@ fun SettingsScreen(
             if (showImportDialog) {
                 PasswordPromptDialog(
                     title = "Import Backup",
-                    description = "Enter the password that was used to encrypt the backup file. The backup file must be named 'cctracker_backup.enc' and located in the app's files directory.",
+                    description = "Enter the password that was used to encrypt the backup. The backup file must be named 'cctracker_backup.enc' and located in the app's external files directory.",
                     onDismiss = { showImportDialog = false },
                     onConfirm = { password ->
                         showImportDialog = false
@@ -218,11 +348,151 @@ fun SettingsScreen(
                 )
             }
 
+            // Add Subscription Dialog
+            if (showAddSubDialog) {
+                var name by remember { mutableStateOf("") }
+                var amount by remember { mutableStateOf("") }
+                var billingDay by remember { mutableStateOf("") }
+                var selectedCategory by remember { mutableStateOf("Utilities") }
+                var selectedCard by remember { mutableStateOf(cards.firstOrNull()) }
+                var errorText by remember { mutableStateOf("") }
+
+                var cardDropdownExpanded by remember { mutableStateOf(false) }
+                var categoryDropdownExpanded by remember { mutableStateOf(false) }
+
+                val categories = listOf("Utilities", "Food & Dining", "Groceries", "Shopping", "Transportation", "Others")
+
+                AlertDialog(
+                    onDismissRequest = { showAddSubDialog = false },
+                    title = { Text("Log Recurring Subscription", fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                            if (errorText.isNotEmpty()) {
+                                Text(errorText, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            }
+
+                            ExposedDropdownMenuBox(
+                                expanded = cardDropdownExpanded,
+                                onExpandedChange = { cardDropdownExpanded = it }
+                            ) {
+                                OutlinedTextField(
+                                    value = selectedCard?.let { "${it.bank.uppercase()} (${it.name})" } ?: "Select Card",
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("Charge Card") },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cardDropdownExpanded) },
+                                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = cardDropdownExpanded,
+                                    onDismissRequest = { cardDropdownExpanded = false }
+                                ) {
+                                    cards.forEach { card ->
+                                        DropdownMenuItem(
+                                            text = { Text("${card.bank.uppercase()} - ${card.name}") },
+                                            onClick = {
+                                                selectedCard = card
+                                                cardDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            OutlinedTextField(
+                                value = name,
+                                onValueChange = { name = it },
+                                label = { Text("Subscription Name (e.g. Netflix)") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = amount,
+                                    onValueChange = { amount = it },
+                                    label = { Text("Monthly Cost ($)") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedTextField(
+                                    value = billingDay,
+                                    onValueChange = { billingDay = it.filter { char -> char.isDigit() }.take(2) },
+                                    label = { Text("Billing Day (1-31)") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            ExposedDropdownMenuBox(
+                                expanded = categoryDropdownExpanded,
+                                onExpandedChange = { categoryDropdownExpanded = it }
+                            ) {
+                                OutlinedTextField(
+                                    value = selectedCategory,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("Category") },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded) },
+                                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = categoryDropdownExpanded,
+                                    onDismissRequest = { categoryDropdownExpanded = false }
+                                ) {
+                                    categories.forEach { cat ->
+                                        DropdownMenuItem(
+                                            text = { Text(cat) },
+                                            onClick = {
+                                                selectedCategory = cat
+                                                categoryDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            val cost = amount.toDoubleOrNull() ?: 0.0
+                            val day = billingDay.toIntOrNull() ?: 0
+                            val activeCard = selectedCard
+                            
+                            if (activeCard == null) {
+                                errorText = "Please select a card."
+                            } else if (name.isBlank()) {
+                                errorText = "Please specify a subscription name."
+                            } else if (cost <= 0.0) {
+                                errorText = "Monthly cost must be greater than 0."
+                            } else if (day !in 1..31) {
+                                errorText = "Billing day must be between 1 and 31."
+                            } else {
+                                viewModel.addSubscription(activeCard.id, name.trim(), cost, day, selectedCategory)
+                                showAddSubDialog = false
+                            }
+                        }) {
+                            Text("Save", fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showAddSubDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
             // Alert Dialog for results
             if (showAlert) {
                 AlertDialog(
                     onDismissRequest = { showAlert = false },
-                    title = { Text("Backup Status", fontWeight = FontWeight.SemiBold) },
+                    title = { Text("Operation Status", fontWeight = FontWeight.SemiBold) },
                     text = { Text(alertText) },
                     confirmButton = {
                         TextButton(onClick = { showAlert = false }) {
