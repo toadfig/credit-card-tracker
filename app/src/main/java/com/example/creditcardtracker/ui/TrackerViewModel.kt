@@ -55,7 +55,11 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         isFeeRedeemable: Boolean,
         feeRedemptionLimit: Double,
         feeRedemptionUnit: String,
-        cardColorIndex: Int
+        cardColorIndex: Int,
+        isSmsTrackingEnabled: Boolean = false,
+        smsSender: String = "",
+        cardType: String = "Visa",
+        cardTier: String = "Classic"
     ) {
         val newCard = CreditCard(
             name = name,
@@ -70,7 +74,11 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             isFeeRedeemable = isFeeRedeemable,
             feeRedemptionLimit = feeRedemptionLimit,
             feeRedemptionUnit = feeRedemptionUnit,
-            cardColorIndex = cardColorIndex
+            cardColorIndex = cardColorIndex,
+            isSmsTrackingEnabled = isSmsTrackingEnabled,
+            smsSender = smsSender,
+            cardType = cardType,
+            cardTier = cardTier
         )
         dbHelper.cards.add(newCard)
         dbHelper.saveData()
@@ -85,6 +93,19 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         syncState()
         if (selectedIndex.value >= cards.size && cards.isNotEmpty()) {
             selectedIndex.value = cards.size - 1
+        }
+    }
+
+    fun updateCardSmsTracking(cardId: String, enabled: Boolean, smsSender: String) {
+        val index = dbHelper.cards.indexOfFirst { it.id == cardId }
+        if (index != -1) {
+            val oldCard = dbHelper.cards[index]
+            dbHelper.cards[index] = oldCard.copy(
+                isSmsTrackingEnabled = enabled,
+                smsSender = smsSender
+            )
+            dbHelper.saveData()
+            syncState()
         }
     }
 
@@ -203,5 +224,35 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         return payments
             .filter { it.cardId == card.id && it.date in range.first..range.second }
             .sumOf { it.amount }
+    }
+
+    fun getRecentSmsSenders(context: Context): List<String> {
+        val senders = mutableSetOf<String>()
+        if (androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.READ_SMS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            return emptyList()
+        }
+        try {
+            val uri = android.net.Uri.parse("content://sms/inbox")
+            val projection = arrayOf("address")
+            val cursor = context.contentResolver.query(uri, projection, null, null, "date DESC")
+            cursor?.use {
+                val addressIndex = it.getColumnIndexOrThrow("address")
+                var count = 0
+                while (it.moveToNext() && count < 150) {
+                    val address = it.getString(addressIndex)
+                    if (!address.isNullOrBlank()) {
+                        senders.add(address)
+                    }
+                    count++
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TrackerViewModel", "Failed to query SMS: ${e.message}")
+        }
+        return senders.toList().sorted()
     }
 }

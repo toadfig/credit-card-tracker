@@ -16,8 +16,15 @@ data class CreditCard(
     val isFeeRedeemable: Boolean,
     val feeRedemptionLimit: Double, // Criteria limit (e.g. 5000 spend)
     val feeRedemptionUnit: String,  // Spend / Points
-    val cardColorIndex: Int = 0  // Design index for UI
-)
+    val cardColorIndex: Int = 0,  // Design index for UI
+    val isSmsTrackingEnabled: Boolean = false,
+    val smsSender: String = "",
+    val cardType: String? = "Visa",
+    val cardTier: String? = "Classic"
+) {
+    val safeCardType: String get() = cardType ?: "Visa"
+    val safeCardTier: String get() = cardTier ?: "Classic"
+}
 
 data class Expense(
     val id: String = UUID.randomUUID().toString(),

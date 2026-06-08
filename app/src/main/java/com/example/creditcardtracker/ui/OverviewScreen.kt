@@ -197,123 +197,21 @@ fun CreditCardWidget(
     viewModel: TrackerViewModel,
     onClick: () -> Unit
 ) {
-    // Beautiful gradient lists
-    val gradients = listOf(
-        Brush.linearGradient(listOf(Color(0xFF00B4D8), Color(0xFF0077B6))), // Emerald / Ocean Blue
-        Brush.linearGradient(listOf(Color(0xFFFB8500), Color(0xFFFFB703))), // Amber / Orange
-        Brush.linearGradient(listOf(Color(0xFFEF476F), Color(0xFFFF8A80))), // Coral / Peach
-        Brush.linearGradient(listOf(Color(0xFF7209B7), Color(0xFF3F37C9))), // Violet / Royal Blue
-        Brush.linearGradient(listOf(Color(0xFF2B2D42), Color(0xFF8D99AE)))  // Tech Gray / Carbon
-    )
-    val brush = gradients[card.cardColorIndex % gradients.size]
     val activeSpend = viewModel.getSpendInCurrentCycle(card)
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale.US)
 
-    Card(
-        modifier = Modifier
-            .width(300.dp)
-            .height(180.dp)
-            .vaultGlow(
-                color = if (isSelected) Color.Black else Color.Transparent,
-                alpha = 0.15f,
-                borderRadius = 24.dp
-            )
-            .clickable { onClick() },
-        shape = VaultUiTokens.ShapeCardLarge,
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 4.dp else 1.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(brush)
-                .padding(20.dp)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Bank and Card Title
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = card.bank.uppercase(),
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.titleMedium,
-                        letterSpacing = 1.5.sp
-                    )
-                    Text(
-                        text = card.name,
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontWeight = FontWeight.Normal,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
-
-                // Masked number and CVV
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "•••• •••• •••• ${card.cardNumber.takeLast(4)}",
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium,
-                        style = MaterialTheme.typography.titleLarge,
-                        letterSpacing = 2.sp
-                    )
-                    
-                    Box(
-                        modifier = Modifier
-                            .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "CVV ${card.cvv}",
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 10.sp
-                        )
-                    }
-                }
-
-                // Balance and Limit
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        Column {
-                            Text(
-                                text = "CYCLE SPEND",
-                                color = Color.White.copy(alpha = 0.7f),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Light
-                            )
-                            Text(
-                                text = currencyFormat.format(activeSpend),
-                                color = Color.White,
-                                fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.titleLarge
-                            )
-                        }
-
-                        Text(
-                            text = "LIMIT: ${currencyFormat.format(card.creditLimit)}",
-                            color = Color.White.copy(alpha = 0.75f),
-                            fontWeight = FontWeight.Light,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
-                }
-            }
-        }
-    }
+    CreditCardDesign(
+        bank = card.bank,
+        name = card.name,
+        cardNumber = card.cardNumber,
+        expiryDate = card.expiryDate,
+        cvv = card.cvv,
+        cardType = card.safeCardType,
+        cardTier = card.safeCardTier,
+        activeSpend = activeSpend,
+        creditLimit = card.creditLimit,
+        isSelected = isSelected,
+        onClick = onClick
+    )
 }
 
 @Composable
