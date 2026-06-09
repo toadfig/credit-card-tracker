@@ -135,7 +135,7 @@ fun OverviewScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    itemsIndexed(cards) { index, card ->
+                    itemsIndexed(items = cards, key = { _, card -> card.id }) { index, card ->
                         CreditCardWidget(
                             card = card,
                             isSelected = index == selectedIndex,

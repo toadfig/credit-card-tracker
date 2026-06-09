@@ -190,7 +190,7 @@ fun SettingsScreen(
                         )
                     }
                 } else {
-                    items(subscriptions) { sub ->
+                    items(items = subscriptions, key = { it.id }) { sub ->
                         val linkedCard = cards.find { it.id == sub.cardId }
                         Card(
                             modifier = Modifier.fillMaxWidth(),

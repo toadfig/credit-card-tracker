@@ -94,12 +94,15 @@ fun ExpensesScreen(
                     )
                 }
             } else {
+                val sortedExpenses = remember(expenses.size, expenses) { 
+                    expenses.sortedByDescending { it.date } 
+                }
+
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    val sortedExpenses = expenses.sortedByDescending { it.date }
-                    items(sortedExpenses) { expense ->
+                    items(items = sortedExpenses, key = { it.id }) { expense ->
                         val linkedCard = cards.find { it.id == expense.cardId }
                         ExpenseItem(
                             expense = expense,

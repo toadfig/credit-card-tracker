@@ -51,8 +51,14 @@ object SmsParser {
     }
 
     fun parseCategory(merchant: String, body: String): String {
-        val mClean = merchant.uppercase()
-        val bClean = body.uppercase()
+        // Try exact/contained match in our massive 26,000+ merchant dataset first
+        val classifiedCategory = MerchantClassifier.classify(merchant)
+        if (classifiedCategory != null) {
+            return classifiedCategory
+        }
+
+        val mClean = merchant.uppercase(java.util.Locale.US)
+        val bClean = body.uppercase(java.util.Locale.US)
         
         return when {
             mClean.contains("FOODPANDA") || mClean.contains("DOMINOS") || mClean.contains("PIZZA") || 

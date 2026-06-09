@@ -50,7 +50,22 @@ val BANGLADESH_ISSUERS = listOf(
     "IPDC Finance",
     "Janata Bank",
     "Sonali Bank",
-    "Agrani Bank"
+    "Agrani Bank",
+    "ONE Bank",
+    "AB Bank",
+    "IFIC Bank",
+    "Mercantile Bank",
+    "Al-Arafah Islami Bank (AIBL)",
+    "Islami Bank Bangladesh (IBBL)",
+    "National Bank (NBL)",
+    "Jamuna Bank",
+    "Premier Bank",
+    "NRB Bank",
+    "SBAC Bank",
+    "Midland Bank",
+    "Community Bank Bangladesh",
+    "Exim Bank",
+    "Shahjalal Islami Bank (SJIBL)"
 )
 
 val CARD_TYPES = listOf(
@@ -96,6 +111,21 @@ fun getBankHelplineDefault(bankName: String): String {
         b.contains("SOUTHEAST") -> "16206"
         b.contains("IPDC") -> "16519"
         b.contains("IDLC") -> "16409"
+        b.contains("ONE BANK") -> "16269"
+        b.contains("AB BANK") -> "16207"
+        b.contains("IFIC") -> "16255"
+        b.contains("MERCANTILE") -> "16225"
+        b.contains("AL-ARAFAH") || b.contains("AIBL") -> "16102"
+        b.contains("ISLAMI BANK") || b.contains("IBBL") -> "16259"
+        b.contains("NATIONAL BANK") || b.contains("NBL") -> "16224"
+        b.contains("JAMUNA") -> "16742"
+        b.contains("PREMIER") -> "16411"
+        b.contains("NRB BANK") -> "16568"
+        b.contains("SBAC") -> "16414"
+        b.contains("MIDLAND") -> "16596"
+        b.contains("COMMUNITY") -> "16607"
+        b.contains("EXIM") -> "16246"
+        b.contains("SHAHJALAL") || b.contains("SJIBL") -> "16237"
         else -> ""
     }
 }
@@ -161,7 +191,7 @@ fun ManageCardsScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(cards) { card ->
+                    items(items = cards, key = { it.id }) { card ->
                         ManageCardItem(
                             card = card,
                             onConfigure = { configCard = card },
