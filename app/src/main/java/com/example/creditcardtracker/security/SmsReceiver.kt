@@ -32,8 +32,14 @@ class SmsReceiver : BroadcastReceiver() {
         val dbHelper = DatabaseHelper(context)
         
         // Find matching cards with SMS tracking enabled
-        val matchedCards = dbHelper.cards.filter {
-            it.isSmsTrackingEnabled && it.smsSender.equals(sender, ignoreCase = true)
+        val incomingNormalized = SmsParser.normalizeSender(sender)
+        val matchedCards = dbHelper.cards.filter { card ->
+            if (card.isSmsTrackingEnabled && card.smsSender.isNotEmpty()) {
+                val cardNormalized = SmsParser.normalizeSender(card.smsSender)
+                incomingNormalized.contains(cardNormalized) || cardNormalized.contains(incomingNormalized)
+            } else {
+                false
+            }
         }
 
         if (matchedCards.isEmpty()) {

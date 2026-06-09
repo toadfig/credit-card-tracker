@@ -4,6 +4,21 @@ import java.util.regex.Pattern
 
 object SmsParser {
     
+    fun normalizeSender(addr: String): String {
+        return addr.uppercase(java.util.Locale.US)
+            .replace("+880", "")
+            .replace("880", "")
+            .replace("GP-", "")
+            .replace("BL-", "")
+            .replace("ROBI-", "")
+            .replace("AIRTEL-", "")
+            .replace("AT-", "")
+            .replace("AD-", "")
+            .replace("-", "")
+            .replace("_", "")
+            .trim()
+    }
+    
     fun parseAmount(body: String): Double? {
         // Look for currency prefixes: BDT 500, USD 4.50, $12.30, etc.
         val amountRegex = Pattern.compile(

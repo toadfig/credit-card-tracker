@@ -5,8 +5,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -452,6 +457,8 @@ fun CreditCardDesign(
     val textColor = CardDesignHelper.getTierTextColor(cardTier)
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale.US)
     
+    var isRevealed by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
     val formattedNum = if (cardNumber.length >= 4) {
         CardDesignHelper.formatCardNumber(cardNumber, cardType)
     } else {
@@ -485,7 +492,7 @@ fun CreditCardDesign(
                     .padding(18.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Top Row: Bank Name and Tier Badge
+                // Top Row: Bank Name and Tier Badge + Visibility eye
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -507,22 +514,37 @@ fun CreditCardDesign(
                         )
                     }
                     
-                    // Premium Tier Badge
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = textColor.copy(alpha = 0.12f),
-                                shape = RoundedCornerShape(4.dp)
-                            )
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = cardTier.uppercase(),
-                            color = textColor,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 9.sp,
-                            letterSpacing = 0.5.sp
+                        // Eye Visibility Toggle
+                        Icon(
+                            imageVector = if (isRevealed) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                            contentDescription = "Toggle Visibility",
+                            tint = textColor.copy(alpha = 0.7f),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clickable { isRevealed = !isRevealed }
                         )
+
+                        // Premium Tier Badge
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = textColor.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = cardTier.uppercase(),
+                                color = textColor,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 9.sp,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
                     }
                 }
 
@@ -539,8 +561,23 @@ fun CreditCardDesign(
 
                 // Bottom Section: Card Number and Details
                 Column {
+                    val displayNum = if (isRevealed) {
+                        formattedNum
+                    } else {
+                        if (cardNumber.length >= 4) {
+                            val last4 = cardNumber.takeLast(4)
+                            when (cardType) {
+                                "American Express" -> "•••• •••••• •$last4"
+                                "Diners Club" -> "•••• •••••• •$last4"
+                                else -> "•••• •••• •••• $last4"
+                            }
+                        } else {
+                            "•••• •••• •••• ••••"
+                        }
+                    }
+
                     Text(
-                        text = formattedNum,
+                        text = displayNum,
                         color = textColor,
                         fontWeight = FontWeight.Medium,
                         fontSize = 16.sp,
@@ -575,7 +612,7 @@ fun CreditCardDesign(
                                     fontWeight = FontWeight.Light
                                 )
                                 Text(
-                                    text = cvv.ifEmpty { "•••" },
+                                    text = if (isRevealed) cvv.ifEmpty { "•••" } else "•••",
                                     color = textColor,
                                     fontWeight = FontWeight.Medium,
                                     fontSize = 11.sp

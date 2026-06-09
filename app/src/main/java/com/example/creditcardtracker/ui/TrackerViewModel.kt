@@ -29,6 +29,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
     val isBiometricEnabled = mutableStateOf(sharedPrefs.getBoolean("biometric_enabled", false))
     val isDynamicColorEnabled = mutableStateOf(sharedPrefs.getBoolean("dynamic_color_enabled", true))
+    val isUnlocked = mutableStateOf(!isBiometricEnabled.value)
     val selectedIndex = mutableStateOf(0)
 
     init {
@@ -53,6 +54,9 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     fun setBiometricEnabled(enabled: Boolean) {
         sharedPrefs.edit().putBoolean("biometric_enabled", enabled).apply()
         isBiometricEnabled.value = enabled
+        if (!enabled) {
+            isUnlocked.value = true
+        }
     }
 
     fun setDynamicColorEnabled(enabled: Boolean) {
@@ -437,4 +441,73 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         }
         return senders.toList().sorted()
     }
+
+    fun scanInboxForCardSms(context: Context, card: CreditCard): List<TempSmsExpense> {
+        val list = mutableListOf<TempSmsExpense>()
+        if (card.smsSender.isBlank()) return list
+
+        if (androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.READ_SMS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            return list
+        }
+
+        try {
+            val uri = android.net.Uri.parse("content://sms/inbox")
+            val cursor = context.contentResolver.query(
+                uri,
+                arrayOf("address", "body", "date"),
+                null,
+                null,
+                "date DESC"
+            )
+
+            cursor?.use {
+                val addressIdx = it.getColumnIndexOrThrow("address")
+                val bodyIdx = it.getColumnIndexOrThrow("body")
+                val dateIdx = it.getColumnIndexOrThrow("date")
+
+                val targetSenderNormalized = com.example.creditcardtracker.security.SmsParser.normalizeSender(card.smsSender)
+
+                while (it.moveToNext()) {
+                    val rawSender = it.getString(addressIdx) ?: ""
+                    val body = it.getString(bodyIdx) ?: ""
+                    val date = it.getLong(dateIdx)
+
+                    val normalizedIncoming = com.example.creditcardtracker.security.SmsParser.normalizeSender(rawSender)
+
+                    if (normalizedIncoming.contains(targetSenderNormalized) || 
+                        targetSenderNormalized.contains(normalizedIncoming)) {
+                        val amount = com.example.creditcardtracker.security.SmsParser.parseAmount(body)
+                        if (amount != null && amount > 0.0) {
+                            val merchant = com.example.creditcardtracker.security.SmsParser.parseMerchant(body)
+                            val category = com.example.creditcardtracker.security.SmsParser.parseCategory(merchant, body)
+                            list.add(
+                                TempSmsExpense(
+                                    amount = amount,
+                                    merchant = merchant,
+                                    category = category,
+                                    date = date,
+                                    body = body
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TrackerViewModel", "Failed to scan SMS inbox: ${e.message}")
+        }
+        return list
+    }
 }
+
+data class TempSmsExpense(
+    val amount: Double,
+    val merchant: String,
+    val category: String,
+    val date: Long,
+    val body: String
+)

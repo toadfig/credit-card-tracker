@@ -1,6 +1,7 @@
 package com.example.creditcardtracker
 
 import android.os.Bundle
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.outlined.Fingerprint
@@ -27,7 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModelProvider
 import com.example.creditcardtracker.security.BiometricHelper
 import com.example.creditcardtracker.theme.CreditCardTrackerTheme
 import com.example.creditcardtracker.theme.VaultUiTokens
@@ -35,8 +37,9 @@ import com.example.creditcardtracker.theme.animatedVaultGradient
 import com.example.creditcardtracker.ui.*
 
 enum class AppTab(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Overview("Vault", Icons.Default.Home),
     Expenses("Expenses", Icons.AutoMirrored.Filled.List),
-    Overview("Overview", Icons.Default.Home),
+    Subscriptions("Subscriptions", Icons.Default.Autorenew),
     Payments("Payments", Icons.Default.Payments)
 }
 
@@ -48,12 +51,21 @@ enum class OverlayScreen {
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : FragmentActivity() {
+    private lateinit var viewModel: TrackerViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Prevent screenshots / recordings for security
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_SECURE
+        )
+        
         enableEdgeToEdge()
+        viewModel = ViewModelProvider(this)[TrackerViewModel::class.java]
 
         setContent {
-            val viewModel: TrackerViewModel = viewModel()
             val dynamicColorEnabled by viewModel.isDynamicColorEnabled
 
             CreditCardTrackerTheme(dynamicColor = dynamicColorEnabled) {
@@ -62,13 +74,13 @@ class MainActivity : FragmentActivity() {
                 
                 // Security / Unlock states
                 val biometricEnabled by viewModel.isBiometricEnabled
-                var isUnlocked by remember { mutableStateOf(!biometricEnabled) }
+                val isUnlocked by viewModel.isUnlocked
 
                 // Automatically trigger biometric unlock on startup if enabled
-                LaunchedEffect(biometricEnabled) {
+                LaunchedEffect(biometricEnabled, isUnlocked) {
                     if (biometricEnabled && !isUnlocked) {
                         triggerUnlock(
-                            onSuccess = { isUnlocked = true },
+                            onSuccess = { viewModel.isUnlocked.value = true },
                             onFailure = { msg ->
                                 Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
                             }
@@ -85,7 +97,7 @@ class MainActivity : FragmentActivity() {
                         LockScreen(
                             onUnlockClick = {
                                 triggerUnlock(
-                                    onSuccess = { isUnlocked = true },
+                                    onSuccess = { viewModel.isUnlocked.value = true },
                                     onFailure = { msg ->
                                         Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
                                     }
@@ -101,9 +113,10 @@ class MainActivity : FragmentActivity() {
                                         title = {
                                             Text(
                                                 text = when (currentTab) {
-                                                    AppTab.Expenses -> "Expenses"
                                                     AppTab.Overview -> "Secure Vault"
-                                                    AppTab.Payments -> "Payments"
+                                                    AppTab.Expenses -> "Expenses Log"
+                                                    AppTab.Subscriptions -> "Subscriptions"
+                                                    AppTab.Payments -> "Payments Log"
                                                 },
                                                 fontWeight = FontWeight.Bold,
                                                 style = MaterialTheme.typography.titleMedium
@@ -160,11 +173,12 @@ class MainActivity : FragmentActivity() {
                                         label = "TabTransition"
                                     ) { targetTab ->
                                         when (targetTab) {
-                                            AppTab.Expenses -> ExpensesScreen(viewModel = viewModel)
                                             AppTab.Overview -> OverviewScreen(
                                                 viewModel = viewModel,
                                                 onManageCardsClick = { overlayScreen = OverlayScreen.ManageCards }
                                             )
+                                            AppTab.Expenses -> ExpensesScreen(viewModel = viewModel)
+                                            AppTab.Subscriptions -> SubscriptionsScreen(viewModel = viewModel)
                                             AppTab.Payments -> PaymentsScreen(viewModel = viewModel)
                                         }
                                     }
@@ -197,6 +211,13 @@ class MainActivity : FragmentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (::viewModel.isInitialized && viewModel.isBiometricEnabled.value) {
+            viewModel.isUnlocked.value = false
         }
     }
 

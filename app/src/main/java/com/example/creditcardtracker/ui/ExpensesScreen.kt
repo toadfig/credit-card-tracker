@@ -4,6 +4,8 @@ import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -45,6 +47,7 @@ fun ExpensesScreen(
     val cards = viewModel.cards
     var showAddDialog by remember { mutableStateOf(false) }
     var showAnalytics by remember { mutableStateOf(true) }
+    var selectedCategoryFilter by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = modifier
@@ -79,7 +82,32 @@ fun ExpensesScreen(
 
             // Spending Analytics Card
             if (showAnalytics && expenses.isNotEmpty()) {
-                SpendingAnalyticsCard(expenses = expenses)
+                SpendingAnalyticsCard(
+                    expenses = expenses,
+                    selectedCategory = selectedCategoryFilter,
+                    onCategoryClick = { selectedCategoryFilter = it }
+                )
+            }
+
+            if (selectedCategoryFilter != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    InputChip(
+                        selected = true,
+                        onClick = { selectedCategoryFilter = null },
+                        label = { Text("Filter: $selectedCategoryFilter") },
+                        trailingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = "Clear Filter",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    )
+                }
             }
 
             if (expenses.isEmpty()) {
@@ -94,8 +122,13 @@ fun ExpensesScreen(
                     )
                 }
             } else {
-                val sortedExpenses = remember(expenses.size, expenses) { 
-                    expenses.sortedByDescending { it.date } 
+                val sortedExpenses = remember(expenses.size, expenses, selectedCategoryFilter) { 
+                    val sorted = expenses.sortedByDescending { it.date } 
+                    if (selectedCategoryFilter != null) {
+                        sorted.filter { it.category == selectedCategoryFilter }
+                    } else {
+                        sorted
+                    }
                 }
 
                 LazyColumn(
@@ -141,7 +174,11 @@ fun ExpensesScreen(
 }
 
 @Composable
-fun SpendingAnalyticsCard(expenses: List<Expense>) {
+fun SpendingAnalyticsCard(
+    expenses: List<Expense>,
+    selectedCategory: String?,
+    onCategoryClick: (String?) -> Unit
+) {
     val categories = listOf("Food & Dining", "Groceries", "Transportation", "Shopping", "Utilities", "Others")
     val categoryColors = listOf(
         Color(0xFFEF476F),
@@ -177,14 +214,56 @@ fun SpendingAnalyticsCard(expenses: List<Expense>) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Category Pie Chart Drawn in Canvas
-                    Canvas(modifier = Modifier.size(110.dp)) {
+                    // Category Pie Chart Drawn in Canvas with tap gesture detection
+                    Canvas(
+                        modifier = Modifier
+                            .size(110.dp)
+                            .pointerInput(expenses, totalSpend) {
+                                detectTapGestures { offset ->
+                                    val cx = size.width / 2f
+                                    val cy = size.height / 2f
+                                    val dx = offset.x - cx
+                                    val dy = offset.y - cy
+                                    val distance = Math.sqrt((dx * dx + dy * dy).toDouble())
+                                    val outerRadius = size.width / 2f
+                                    val innerRadius = outerRadius * 0.56f
+
+                                    if (distance in innerRadius..outerRadius) {
+                                        val angleDeg = Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble()))
+                                        val clockwiseAngle = (angleDeg + 90.0 + 360.0) % 360.0
+
+                                        var currentStart = 0.0
+                                        spendByCategory.forEachIndexed { index, amount ->
+                                            val sweep = (amount / totalSpend) * 360.0
+                                            if (sweep > 0.0) {
+                                                val currentEnd = currentStart + sweep
+                                                if (clockwiseAngle >= currentStart && clockwiseAngle < currentEnd) {
+                                                    val clickedCat = categories[index]
+                                                    onCategoryClick(if (selectedCategory == clickedCat) null else clickedCat)
+                                                }
+                                                currentStart = currentEnd
+                                            }
+                                        }
+                                    } else {
+                                        onCategoryClick(null)
+                                    }
+                                }
+                            }
+                    ) {
                         var startAngle = -90f
                         spendByCategory.forEachIndexed { index, amount ->
                             val sweepAngle = ((amount / totalSpend) * 360f).toFloat()
                             if (sweepAngle > 0f) {
+                                val isSelected = selectedCategory == categories[index]
+                                val hasSelection = selectedCategory != null
+                                val sliceColor = if (hasSelection && !isSelected) {
+                                    categoryColors[index].copy(alpha = 0.25f)
+                                } else {
+                                    categoryColors[index]
+                                }
+
                                 drawArc(
-                                    color = categoryColors[index],
+                                    color = sliceColor,
                                     startAngle = startAngle,
                                     sweepAngle = sweepAngle,
                                     useCenter = true,
@@ -209,20 +288,31 @@ fun SpendingAnalyticsCard(expenses: List<Expense>) {
                         categories.forEachIndexed { index, name ->
                             val amount = spendByCategory[index]
                             if (amount > 0) {
+                                val isSelected = selectedCategory == name
+                                val hasSelection = selectedCategory != null
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier
+                                        .clickable {
+                                            onCategoryClick(if (selectedCategory == name) null else name)
+                                        }
+                                        .padding(vertical = 2.dp)
                                 ) {
                                     Box(
                                         modifier = Modifier
                                             .size(10.dp)
-                                            .background(categoryColors[index], RoundedCornerShape(2.dp))
+                                            .background(
+                                                color = if (hasSelection && !isSelected) categoryColors[index].copy(alpha = 0.25f) else categoryColors[index],
+                                                shape = RoundedCornerShape(2.dp)
+                                            )
                                     )
                                     Text(
-                                        text = "$name: BDT ${amount.toInt()}",
+                                        text = "$name: ৳${amount.toInt()}",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = if (hasSelection && !isSelected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
                                 }
                             }
@@ -364,6 +454,9 @@ fun AddExpenseDialog(
     var exchangeRate by remember { mutableStateOf("117.5") } // Default USD rate estimate
 
     var errorText by remember { mutableStateOf("") }
+    
+    var selectedDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     val categories = listOf("Food & Dining", "Groceries", "Transportation", "Shopping", "Utilities", "Others")
     var cardDropdownExpanded by remember { mutableStateOf(false) }
@@ -487,6 +580,25 @@ fun AddExpenseDialog(
                     }
                 }
 
+                val sdf = remember { SimpleDateFormat("MMM d, yyyy", Locale.US) }
+                OutlinedTextField(
+                    value = sdf.format(Date(selectedDateMillis)),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Transaction Date") },
+                    trailingIcon = {
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Event,
+                                contentDescription = "Choose Date"
+                            )
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showDatePicker = true }
+                )
+
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
@@ -514,7 +626,7 @@ fun AddExpenseDialog(
                     val finalRate = if (currency == "BDT") 1.0 else rateVal
                     onConfirm(
                         activeCard.id, amtVal, selectedCategory, description,
-                        System.currentTimeMillis(), currency, finalRate
+                        selectedDateMillis, currency, finalRate
                     )
                 }
             }) {
@@ -527,4 +639,28 @@ fun AddExpenseDialog(
             }
         }
     )
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDateMillis)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        selectedDateMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 }

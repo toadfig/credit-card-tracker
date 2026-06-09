@@ -17,11 +17,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.AddCard
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -494,6 +496,7 @@ fun AddCardDialog(
 
     var cardType by remember { mutableStateOf("Visa") }
     var cardTier by remember { mutableStateOf("Classic") }
+    var showExpiryPicker by remember { mutableStateOf(false) }
 
     // Advanced fields
     var annualLoungeQuota by remember { mutableStateOf("") }
@@ -663,10 +666,20 @@ fun AddCardDialog(
                     ) {
                         OutlinedTextField(
                             value = expiry,
-                            onValueChange = { expiry = it.take(5) },
+                            onValueChange = {},
+                            readOnly = true,
                             label = { Text("Expiry (MM/YY)") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
+                            trailingIcon = {
+                                IconButton(onClick = { showExpiryPicker = true }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Event,
+                                        contentDescription = "Select Expiry MM/YY"
+                                    )
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { showExpiryPicker = true }
                         )
                         OutlinedTextField(
                             value = cvv,
@@ -926,6 +939,8 @@ fun AddCardDialog(
                     errorText = "Please fill in all card credentials."
                 } else if (limVal <= 0.0) {
                     errorText = "Credit limit must be greater than 0."
+                } else if (limVal > 4000000.0) {
+                    errorText = "Credit limit cannot exceed the BB circular ceiling of BDT 40 Lakh (৳40,00,000)."
                 } else if (stmtDay !in 1..31 || dDay !in 1..31) {
                     errorText = "Statement and Due days must be between 1 and 31."
                 } else if (expiry.length != 5 || !expiry.contains("/")) {
@@ -950,6 +965,16 @@ fun AddCardDialog(
             }
         }
     )
+
+    if (showExpiryPicker) {
+        ExpiryPickerDialog(
+            onDismiss = { showExpiryPicker = false },
+            onConfirm = { m, y ->
+                expiry = "$m/$y"
+                showExpiryPicker = false
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1171,3 +1196,91 @@ fun CardConfigurationDialog(
         }
     )
 }
+
+@Composable
+fun ExpiryPickerDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (month: String, year: String) -> Unit
+) {
+    val months = listOf("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12")
+    val years = (26..40).map { it.toString() } // 2026-2040
+
+    var selectedMonth by remember { mutableStateOf("06") }
+    var selectedYear by remember { mutableStateOf("26") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Expiry Date", fontWeight = FontWeight.Bold) },
+        text = {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Months Column
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Month", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+                    Box(modifier = Modifier.height(200.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))) {
+                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            items(months) { m ->
+                                val isSelected = m == selectedMonth
+                                Text(
+                                    text = m,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { selectedMonth = m }
+                                        .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                        .padding(vertical = 12.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Years Column
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Year", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+                    Box(modifier = Modifier.height(200.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))) {
+                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            items(years) { y ->
+                                val isSelected = y == selectedYear
+                                Text(
+                                    text = "'$y",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { selectedYear = y }
+                                        .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                        .padding(vertical = 12.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(selectedMonth, selectedYear) }
+            ) {
+                Text("Select", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+

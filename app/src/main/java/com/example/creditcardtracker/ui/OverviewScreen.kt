@@ -21,6 +21,11 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -231,7 +236,10 @@ fun SelectedCardDetailsView(
     val dueDateMillis = viewModel.getDueDateForCycle(card.statementDay, card.dueDay)
     
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale.US)
+    val bdtFormatter = remember { NumberFormat.getNumberInstance(Locale("en", "IN")) }
+    fun formatBdt(amount: Double): String {
+        return "৳" + bdtFormatter.format(amount)
+    }
 
     val today = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0)
@@ -352,12 +360,12 @@ fun SelectedCardDetailsView(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Spend: ${currencyFormat.format(activeSpend)} (${(limitFraction * 100).toInt()}%)",
+                        text = "Spend: ${formatBdt(activeSpend)} (${(limitFraction * 100).toInt()}%)",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Available: ${currencyFormat.format(remainingLimit)}",
+                        text = "Available: ${formatBdt(remainingLimit)}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -471,13 +479,13 @@ fun SelectedCardDetailsView(
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = "Month $currentMonth of ${emi.monthsDuration} | Total: ${currencyFormat.format(emi.totalAmount)}",
+                                        text = "Month $currentMonth of ${emi.monthsDuration} | Total: ${formatBdt(emi.totalAmount)}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 Text(
-                                    text = "${currencyFormat.format(emi.monthlyInstallment)}/mo",
+                                    text = "${formatBdt(emi.monthlyInstallment)}/mo",
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
@@ -518,12 +526,12 @@ fun SelectedCardDetailsView(
                     ) {
                         Column {
                             Text("Simulated Payment", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(currencyFormat.format(simulatedPaymentAmount), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            Text(formatBdt(simulatedPaymentAmount), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text("Est. Finance Interest (2.5%)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(
-                                text = if (simulatedInterestCharge > 0) currencyFormat.format(simulatedInterestCharge) else "None",
+                                text = if (simulatedInterestCharge > 0) formatBdt(simulatedInterestCharge) else "None",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = if (simulatedInterestCharge > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
@@ -577,6 +585,129 @@ fun SelectedCardDetailsView(
                 }
             }
 
+            // SMS Inbox Scanner Card
+            if (card.isSmsTrackingEnabled && card.smsSender.isNotEmpty()) {
+                var showScanDialog by remember { mutableStateOf(false) }
+                val permissionLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestPermission()
+                ) { isGranted ->
+                    if (isGranted) {
+                        showScanDialog = true
+                    } else {
+                        Toast.makeText(context, "READ_SMS permission is required to scan the inbox.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Sms,
+                                contentDescription = "SMS Scan",
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                            Column {
+                                Text("SMS Inbox Scanner", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text("Scan historical texts from ${card.smsSender}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Button(
+                            onClick = {
+                                val hasReadSms = androidx.core.content.ContextCompat.checkSelfPermission(
+                                    context,
+                                    android.Manifest.permission.READ_SMS
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                if (hasReadSms) {
+                                    showScanDialog = true
+                                } else {
+                                    permissionLauncher.launch(android.Manifest.permission.READ_SMS)
+                                }
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text("Scan Inbox", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+
+                if (showScanDialog) {
+                    ScanSmsDialog(
+                        card = card,
+                        viewModel = viewModel,
+                        onDismiss = { showScanDialog = false }
+                    )
+                }
+            }
+
+            // Bangladesh Bank June 2026 Circular compliance card
+            var isGuidelinesExpanded by remember { mutableStateOf(false) }
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isGuidelinesExpanded = !isGuidelinesExpanded }
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Gavel,
+                                contentDescription = "Regulation",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "June 2026 BB Regulations",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Icon(
+                            imageVector = if (isGuidelinesExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                            contentDescription = "Toggle",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (isGuidelinesExpanded) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        Text(
+                            text = "Bangladesh Bank Credit Card Directive (June 2026):",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "• Unsecured Credit Ceiling: The combined limit for unsecured credit card loans across all banking institutions is capped strictly at BDT 40 Lakh (৳40,00,000) per individual customer.\n" +
+                                   "• Unsecured Exposure Parameters: Banking and Non-Banking Financial Institutions (NBFIs) are required to monitor customer debt-to-income ratios before issuing additional lines of credit.\n" +
+                                   "• Billing Dispute Terms: Customers have a 45-day window to file dispute claims. No interest, finance fees, or late payment penalties can be assessed on disputed transactions during the investigation period.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+
             // Fees & Annual redemption criteria
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -609,7 +740,7 @@ fun SelectedCardDetailsView(
                         )
                     }
                     Text(
-                        text = if (card.annualFee > 0) currencyFormat.format(card.annualFee) else "No Fee",
+                        text = if (card.annualFee > 0) formatBdt(card.annualFee) else "No Fee",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -663,7 +794,7 @@ fun SelectedCardDetailsView(
                             Column(modifier = Modifier.padding(10.dp)) {
                                 Text(
                                     text = if (card.feeRedemptionUnit == "Spend") {
-                                        "Spend requirement: Spend ${currencyFormat.format(target)} to waive fee. Current cycle progress: ${progressPercent.toInt()}%."
+                                        "Spend requirement: Spend ${formatBdt(target)} to waive fee. Current cycle progress: ${progressPercent.toInt()}%."
                                     } else {
                                         "Points requirement: Accumulate ${target.toInt()} points to waive fee."
                                     },
@@ -687,7 +818,7 @@ fun SelectedCardDetailsView(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("Payments Made", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(currencyFormat.format(activePayments), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text(formatBdt(activePayments), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                 }
 
@@ -697,7 +828,7 @@ fun SelectedCardDetailsView(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("Remaining Due", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(currencyFormat.format(unpaidStatementBalance), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (unpaidStatementBalance > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                        Text(formatBdt(unpaidStatementBalance), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (unpaidStatementBalance > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -816,4 +947,132 @@ fun SelectedCardDetailsView(
             }
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ScanSmsDialog(
+    card: CreditCard,
+    viewModel: TrackerViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val smsList = remember(card) {
+        val allSms = viewModel.scanInboxForCardSms(context, card)
+        val existingDates = viewModel.expenses.filter { it.cardId == card.id }.map { it.date }.toSet()
+        allSms.filter { it.date !in existingDates }
+    }
+
+    val selectedSmsList = remember(smsList) {
+        smsList.map { true }.toMutableStateList()
+    }
+
+    val bdtFormatter = remember { NumberFormat.getNumberInstance(Locale("en", "IN")) }
+    fun formatBdt(amount: Double): String {
+        return "৳" + bdtFormatter.format(amount)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Scan SMS Inbox", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Found ${smsList.size} new transaction alerts from sender \"${card.smsSender}\" that have not been logged yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (smsList.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(150.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No new transaction alerts found.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 280.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+                    ) {
+                        LazyColumn(modifier = Modifier.fillMaxSize().padding(6.dp)) {
+                            itemsIndexed(smsList) { idx, sms ->
+                                val dateStr = SimpleDateFormat("MMM d, yyyy HH:mm", Locale.US).format(Date(sms.date))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            selectedSmsList[idx] = !selectedSmsList[idx]
+                                        }
+                                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = selectedSmsList[idx],
+                                        onCheckedChange = { checked ->
+                                            selectedSmsList[idx] = checked
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "${sms.merchant}: ${formatBdt(sms.amount)}",
+                                            fontWeight = FontWeight.SemiBold,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Text(
+                                            text = "$dateStr | Cat: ${sms.category}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    var importCount = 0
+                    smsList.forEachIndexed { idx, sms ->
+                        if (selectedSmsList[idx]) {
+                            viewModel.addExpense(
+                                cardId = card.id,
+                                amount = sms.amount,
+                                category = sms.category,
+                                description = "Auto SMS: ${sms.merchant}",
+                                date = sms.date,
+                                currency = "BDT",
+                                exchangeRate = 1.0
+                            )
+                            importCount++
+                        }
+                    }
+                    Toast.makeText(context, "Imported $importCount transaction(s).", Toast.LENGTH_SHORT).show()
+                    onDismiss()
+                },
+                enabled = smsList.isNotEmpty() && selectedSmsList.any { it }
+            ) {
+                Text("Import Selected", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
 }

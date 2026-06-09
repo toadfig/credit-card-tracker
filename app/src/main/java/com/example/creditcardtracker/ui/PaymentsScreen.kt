@@ -114,7 +114,7 @@ fun PaymentItem(
     card: CreditCard?,
     onDelete: () -> Unit
 ) {
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale.US)
+    val bdtFormatter = remember { NumberFormat.getNumberInstance(Locale("en", "IN")) }
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
 
     Card(
@@ -168,7 +168,7 @@ fun PaymentItem(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = currencyFormat.format(payment.amount),
+                    text = "৳" + bdtFormatter.format(payment.amount),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
@@ -251,7 +251,7 @@ fun AddPaymentDialog(
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it },
-                    label = { Text("Payment Amount ($)") },
+                    label = { Text("Payment Amount (BDT)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()

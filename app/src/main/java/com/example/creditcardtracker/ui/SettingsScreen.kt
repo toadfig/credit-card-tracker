@@ -42,14 +42,12 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val cards = viewModel.cards
-    val subscriptions = viewModel.subscriptions
 
     var isBiometricEnabled by viewModel.isBiometricEnabled
     var isDynamicColorEnabled by viewModel.isDynamicColorEnabled
 
     var showExportDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
-    var showAddSubDialog by remember { mutableStateOf(false) }
     
     var alertText by remember { mutableStateOf("") }
     var showAlert by remember { mutableStateOf(false) }
@@ -160,74 +158,7 @@ fun SettingsScreen(
                     }
                 }
 
-                // Subscriptions Manager Section
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Subscriptions Manager",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        if (cards.isNotEmpty()) {
-                            TextButton(onClick = { showAddSubDialog = true }) {
-                                Text("Add", fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
 
-                if (subscriptions.isEmpty()) {
-                    item {
-                        Text(
-                            text = "No recurring subscriptions configured yet.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
-                    items(items = subscriptions, key = { it.id }) { sub ->
-                        val linkedCard = cards.find { it.id == sub.cardId }
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(sub.name, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-                                    Text(
-                                        text = "${linkedCard?.bank?.uppercase() ?: "Unknown Card"} • Day ${sub.billingDay} of Month",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(
-                                        text = currencyFormat.format(sub.amount),
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    IconButton(onClick = { viewModel.deleteSubscription(sub.id) }) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Delete,
-                                            contentDescription = "Delete Subscription",
-                                            tint = MaterialTheme.colorScheme.error
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
 
                 // Data Management Section
                 item {
@@ -348,145 +279,7 @@ fun SettingsScreen(
                 )
             }
 
-            // Add Subscription Dialog
-            if (showAddSubDialog) {
-                var name by remember { mutableStateOf("") }
-                var amount by remember { mutableStateOf("") }
-                var billingDay by remember { mutableStateOf("") }
-                var selectedCategory by remember { mutableStateOf("Utilities") }
-                var selectedCard by remember { mutableStateOf(cards.firstOrNull()) }
-                var errorText by remember { mutableStateOf("") }
 
-                var cardDropdownExpanded by remember { mutableStateOf(false) }
-                var categoryDropdownExpanded by remember { mutableStateOf(false) }
-
-                val categories = listOf("Utilities", "Food & Dining", "Groceries", "Shopping", "Transportation", "Others")
-
-                AlertDialog(
-                    onDismissRequest = { showAddSubDialog = false },
-                    title = { Text("Log Recurring Subscription", fontWeight = FontWeight.Bold) },
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                            if (errorText.isNotEmpty()) {
-                                Text(errorText, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                            }
-
-                            ExposedDropdownMenuBox(
-                                expanded = cardDropdownExpanded,
-                                onExpandedChange = { cardDropdownExpanded = it }
-                            ) {
-                                OutlinedTextField(
-                                    value = selectedCard?.let { "${it.bank.uppercase()} (${it.name})" } ?: "Select Card",
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    label = { Text("Charge Card") },
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cardDropdownExpanded) },
-                                    modifier = Modifier.menuAnchor().fillMaxWidth()
-                                )
-                                ExposedDropdownMenu(
-                                    expanded = cardDropdownExpanded,
-                                    onDismissRequest = { cardDropdownExpanded = false }
-                                ) {
-                                    cards.forEach { card ->
-                                        DropdownMenuItem(
-                                            text = { Text("${card.bank.uppercase()} - ${card.name}") },
-                                            onClick = {
-                                                selectedCard = card
-                                                cardDropdownExpanded = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-
-                            OutlinedTextField(
-                                value = name,
-                                onValueChange = { name = it },
-                                label = { Text("Subscription Name (e.g. Netflix)") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedTextField(
-                                    value = amount,
-                                    onValueChange = { amount = it },
-                                    label = { Text("Monthly Cost ($)") },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                    singleLine = true,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                OutlinedTextField(
-                                    value = billingDay,
-                                    onValueChange = { billingDay = it.filter { char -> char.isDigit() }.take(2) },
-                                    label = { Text("Billing Day (1-31)") },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    singleLine = true,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-
-                            ExposedDropdownMenuBox(
-                                expanded = categoryDropdownExpanded,
-                                onExpandedChange = { categoryDropdownExpanded = it }
-                            ) {
-                                OutlinedTextField(
-                                    value = selectedCategory,
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    label = { Text("Category") },
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded) },
-                                    modifier = Modifier.menuAnchor().fillMaxWidth()
-                                )
-                                ExposedDropdownMenu(
-                                    expanded = categoryDropdownExpanded,
-                                    onDismissRequest = { categoryDropdownExpanded = false }
-                                ) {
-                                    categories.forEach { cat ->
-                                        DropdownMenuItem(
-                                            text = { Text(cat) },
-                                            onClick = {
-                                                selectedCategory = cat
-                                                categoryDropdownExpanded = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            val cost = amount.toDoubleOrNull() ?: 0.0
-                            val day = billingDay.toIntOrNull() ?: 0
-                            val activeCard = selectedCard
-                            
-                            if (activeCard == null) {
-                                errorText = "Please select a card."
-                            } else if (name.isBlank()) {
-                                errorText = "Please specify a subscription name."
-                            } else if (cost <= 0.0) {
-                                errorText = "Monthly cost must be greater than 0."
-                            } else if (day !in 1..31) {
-                                errorText = "Billing day must be between 1 and 31."
-                            } else {
-                                viewModel.addSubscription(activeCard.id, name.trim(), cost, day, selectedCategory)
-                                showAddSubDialog = false
-                            }
-                        }) {
-                            Text("Save", fontWeight = FontWeight.Bold)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showAddSubDialog = false }) {
-                            Text("Cancel")
-                        }
-                    }
-                )
-            }
 
             // Alert Dialog for results
             if (showAlert) {
