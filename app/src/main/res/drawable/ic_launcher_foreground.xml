@@ -6,14 +6,16 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     
+    <!-- Shield Shadow / Ambient Glow -->
     <path
         android:pathData="M54,19 L81,27 L81,53 C81,69 69,83 54,87 C39,83 27,69 27,53 L27,27 Z"
-        android:fillColor="#1F000000" />
+        android:fillColor="#22000000" />
 
+    <!-- Outer Shield Outline with Teal Gradient -->
     <path
         android:pathData="M54,18 L80,26 L80,52 C80,68 68,82 54,86 C40,82 28,68 28,52 L28,26 Z"
-        android:strokeWidth="2.5"
-        android:strokeColor="#10B981">
+        android:strokeWidth="3"
+        android:strokeColor="#00B4D8">
         <aapt:attr name="android:fillColor">
             <gradient
                 android:endX="54"
@@ -21,36 +23,40 @@
                 android:startX="54"
                 android:startY="18"
                 android:type="linear">
-                <item android:color="#2510B981" android:offset="0.0"/>
-                <item android:color="#0010B981" android:offset="1.0"/>
+                <item android:color="#2000B4D8" android:offset="0.0"/>
+                <item android:color="#0000B4D8" android:offset="1.0"/>
             </gradient>
         </aapt:attr>
     </path>
 
+    <!-- Credit Card Shape -->
     <path
         android:pathData="M38,38 H70 C72,38 73,39 73,41 V59 C73,61 72,62 70,62 H38 C36,62 35,61 35,59 V41 C35,39 36,38 38,38 Z"
-        android:strokeWidth="1.8"
+        android:strokeWidth="2.2"
         android:strokeColor="#FFFFFF"
-        android:fillColor="#15FFFFFF" />
+        android:fillColor="#18FFFFFF" />
 
+    <!-- Magnetic Strip -->
     <path
         android:pathData="M35,44 H73"
-        android:strokeWidth="1.2"
+        android:strokeWidth="1.5"
         android:strokeColor="#80FFFFFF" />
         
+    <!-- Chip (Gold Accent) -->
     <path
         android:pathData="M39,48 H45 V53 H39 Z"
-        android:fillColor="#FBBF24" />
+        android:fillColor="#FFB703" />
 
+    <!-- Double Ring Accent (Emerald) -->
     <path
         android:pathData="M54,50 C51.5,50 49,52 49,55 C49,57 51,59 54,59 C57,59 59,57 59,55"
-        android:strokeWidth="1.2"
-        android:strokeColor="#34D399"
+        android:strokeWidth="1.5"
+        android:strokeColor="#00E676"
         android:strokeLineCap="round" />
     <path
         android:pathData="M54,47 C48,47 46,51 46,55 C46,58.5 48.5,62 54,62 C59.5,62 62,58.5 62,55"
-        android:strokeWidth="1.2"
-        android:strokeColor="#34D399"
+        android:strokeWidth="1.5"
+        android:strokeColor="#00E676"
         android:strokeLineCap="round" />
 
 </vector>

@@ -6,7 +6,8 @@ import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -170,8 +171,9 @@ class MainActivity : FragmentActivity() {
                                     AnimatedContent(
                                         targetState = currentTab,
                                         transitionSpec = {
-                                            fadeIn(animationSpec = tween(250)) + slideInVertically(animationSpec = tween(250), initialOffsetY = { it / 10 }) togetherWith 
-                                            fadeOut(animationSpec = tween(120))
+                                            fadeIn(animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)) + 
+                                            slideInVertically(animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow), initialOffsetY = { it / 10 }) togetherWith 
+                                            fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMedium))
                                         },
                                         label = "TabTransition"
                                     ) { targetTab ->
@@ -192,8 +194,8 @@ class MainActivity : FragmentActivity() {
                             // Sliding overlay screens
                             AnimatedVisibility(
                                 visible = overlayScreen != OverlayScreen.None,
-                                enter = slideInVertically(animationSpec = tween(300), initialOffsetY = { it }),
-                                exit = slideOutVertically(animationSpec = tween(250), targetOffsetY = { it })
+                                enter = slideInVertically(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), initialOffsetY = { it }),
+                                exit = slideOutVertically(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium), targetOffsetY = { it })
                             ) {
                                 when (overlayScreen) {
                                     OverlayScreen.ManageCards -> {

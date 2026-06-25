@@ -13,14 +13,15 @@
                 android:startX="0"
                 android:startY="0"
                 android:type="linear">
-                <item android:color="#0F172A" android:offset="0.0"/>
-                <item android:color="#1E293B" android:offset="0.5"/>
-                <item android:color="#020617" android:offset="1.0"/>
+                <item android:color="#0B0F19" android:offset="0.0"/>
+                <item android:color="#1A2238" android:offset="0.6"/>
+                <item android:color="#050810" android:offset="1.0"/>
             </gradient>
         </aapt:attr>
     </path>
+    <!-- Subtle grid lines for high tech feel -->
     <path
         android:pathData="M0,20 C30,40 70,10 108,30 M0,50 C40,70 60,30 108,60 M0,80 C30,90 80,70 108,90"
         android:strokeWidth="0.5"
-        android:strokeColor="#15FFFFFF" />
+        android:strokeColor="#10FFFFFF" />
 </vector>
