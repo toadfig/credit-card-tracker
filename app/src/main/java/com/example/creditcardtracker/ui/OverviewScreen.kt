@@ -15,6 +15,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -307,89 +311,110 @@ fun AccountWidget(
     viewModel: TrackerViewModel,
     onClick: () -> Unit
 ) {
-    if (account.accountType == AccountType.CREDIT_CARD) {
-        val activeSpend = viewModel.getSpendInCurrentCycle(account)
-        CreditCardDesign(
-            bank = account.bank,
-            name = account.name,
-            cardNumber = account.cardNumber,
-            expiryDate = account.expiryDate,
-            cvv = account.cvv,
-            cardType = account.safeCardType,
-            cardTier = account.safeCardTier,
-            activeSpend = activeSpend,
-            creditLimit = account.creditLimit,
-            isSelected = isSelected,
-            onClick = onClick
-        )
-    } else {
-        val inLocale = Locale("en", "IN")
-        val balanceFormatter = remember { 
-            val formatter = NumberFormat.getCurrencyInstance(inLocale)
-            formatter.currency = Currency.getInstance("BDT")
-            formatter
-        }
-        val formattedBalance = balanceFormatter.format(account.balance)
-        
-        Card(
-            modifier = Modifier
-                .width(280.dp)
-                .height(160.dp)
-                .clickable { onClick() }
-                .then(
-                    if (isSelected) Modifier.border(width = 2.dp, color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(16.dp))
-                    else Modifier
-                )
-                .vaultGlass(borderRadius = 16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-        ) {
-            Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = account.bank,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = account.name,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.0f else 0.92f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "CardScale"
+    )
+
+    Box(
+        modifier = Modifier
+            .graphicsLayer(
+                scaleX = scale,
+                scaleY = scale
+            )
+            .then(
+                if (isSelected) Modifier.border(
+                    width = 2.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(16.dp)
+                ) else Modifier
+            )
+            .clip(RoundedCornerShape(16.dp))
+    ) {
+        if (account.accountType == AccountType.CREDIT_CARD) {
+            val activeSpend = viewModel.getSpendInCurrentCycle(account)
+            CreditCardDesign(
+                bank = account.bank,
+                name = account.name,
+                cardNumber = account.cardNumber,
+                expiryDate = account.expiryDate,
+                cvv = account.cvv,
+                cardType = account.safeCardType,
+                cardTier = account.safeCardTier,
+                activeSpend = activeSpend,
+                creditLimit = account.creditLimit,
+                isSelected = isSelected,
+                onClick = onClick
+            )
+        } else {
+            val inLocale = Locale("en", "IN")
+            val balanceFormatter = remember { 
+                val formatter = NumberFormat.getCurrencyInstance(inLocale)
+                formatter.currency = Currency.getInstance("BDT")
+                formatter
+            }
+            val formattedBalance = balanceFormatter.format(account.balance)
+            
+            Card(
+                modifier = Modifier
+                    .width(280.dp)
+                    .height(160.dp)
+                    .clickable { onClick() }
+                    .vaultGlass(borderRadius = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            ) {
+                Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = account.bank,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = account.name,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                            
+                            val icon = when (account.accountType) {
+                                AccountType.BANK_ACCOUNT -> Icons.Outlined.AccountBalance
+                                AccountType.MFS -> Icons.Outlined.Smartphone
+                                AccountType.CASH -> Icons.Outlined.Payments
+                                else -> Icons.Outlined.Wallet
+                            }
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = account.accountType.name,
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                         
-                        val icon = when (account.accountType) {
-                            AccountType.BANK_ACCOUNT -> Icons.Outlined.AccountBalance
-                            AccountType.MFS -> Icons.Outlined.Smartphone
-                            AccountType.CASH -> Icons.Outlined.Payments
-                            else -> Icons.Outlined.Wallet
+                        Column {
+                            Text(
+                                text = "Available Balance",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                            Text(
+                                text = formattedBalance,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                         }
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = account.accountType.name,
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                    
-                    Column {
-                        Text(
-                            text = "Available Balance",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                        Text(
-                            text = formattedBalance,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
                     }
                 }
             }

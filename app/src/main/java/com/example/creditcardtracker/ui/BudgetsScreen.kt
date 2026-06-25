@@ -6,6 +6,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -395,6 +398,15 @@ fun BudgetProgressCard(
     val totalLimit = budget.limitAmount + budget.rolloverAmount
     val progress = if (totalLimit > 0) (spent / totalLimit).coerceIn(0.0, 1.0).toFloat() else 0f
     
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "BudgetProgress"
+    )
+    
     val color = when {
         progress >= 0.9f -> MaterialTheme.colorScheme.error
         progress >= 0.7f -> Color(0xFFFFD166) // Orange
@@ -443,7 +455,7 @@ fun BudgetProgressCard(
             }
 
             LinearProgressIndicator(
-                progress = { progress },
+                progress = { animatedProgress },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)
@@ -481,6 +493,16 @@ fun SavingsGoalProgressCard(
     onUpdateClick: () -> Unit
 ) {
     val progress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).coerceIn(0.0, 1.0).toFloat() else 0f
+    
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "GoalProgress"
+    )
+    
     val dateStr = SimpleDateFormat("MMM dd, yyyy", Locale.US).format(Date(goal.targetDate))
 
     Card(
@@ -519,7 +541,7 @@ fun SavingsGoalProgressCard(
             }
 
             LinearProgressIndicator(
-                progress = { progress },
+                progress = { animatedProgress },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)

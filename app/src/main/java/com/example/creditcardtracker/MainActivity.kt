@@ -29,7 +29,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModelProvider
 import com.example.creditcardtracker.security.BiometricHelper
@@ -39,11 +41,11 @@ import com.example.creditcardtracker.theme.animatedVaultGradient
 import com.example.creditcardtracker.ui.*
 
 enum class AppTab(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Overview("Dashboard", Icons.Default.Home),
+    Overview("Home", Icons.Default.Home),
     Expenses("Ledger", Icons.AutoMirrored.Filled.List),
     Budgets("Budgets", Icons.Default.PieChart),
     Subscriptions("Bills", Icons.Default.Autorenew),
-    Payments("Payments", Icons.Default.Payments)
+    Payments("Pay", Icons.Default.Payments)
 }
 
 enum class OverlayScreen {
@@ -150,7 +152,16 @@ class MainActivity : FragmentActivity() {
                                             NavigationBarItem(
                                                 selected = isSelected,
                                                 onClick = { currentTab = tab },
-                                                label = { Text(tab.label, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal) },
+                                                alwaysShowLabel = true,
+                                                label = {
+                                                    Text(
+                                                        text = tab.label,
+                                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                                        fontSize = 11.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                },
                                                 icon = { Icon(tab.icon, contentDescription = tab.label) },
                                                 colors = NavigationBarItemDefaults.colors(
                                                     selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,

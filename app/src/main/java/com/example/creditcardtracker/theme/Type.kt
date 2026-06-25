@@ -11,26 +11,10 @@ import androidx.compose.ui.unit.sp
 import com.example.creditcardtracker.R
 
 val PlusJakartaSans = FontFamily(
-    Font(
-        resId = R.font.plus_jakarta_sans,
-        weight = FontWeight.Normal,
-        variationSettings = FontVariation.Settings(FontVariation.weight(400))
-    ),
-    Font(
-        resId = R.font.plus_jakarta_sans,
-        weight = FontWeight.Medium,
-        variationSettings = FontVariation.Settings(FontVariation.weight(500))
-    ),
-    Font(
-        resId = R.font.plus_jakarta_sans,
-        weight = FontWeight.SemiBold,
-        variationSettings = FontVariation.Settings(FontVariation.weight(600))
-    ),
-    Font(
-        resId = R.font.plus_jakarta_sans,
-        weight = FontWeight.Bold,
-        variationSettings = FontVariation.Settings(FontVariation.weight(700))
-    )
+    Font(resId = R.font.plus_jakarta_sans, weight = FontWeight.Normal),
+    Font(resId = R.font.plus_jakarta_sans, weight = FontWeight.Medium),
+    Font(resId = R.font.plus_jakarta_sans, weight = FontWeight.SemiBold),
+    Font(resId = R.font.plus_jakarta_sans, weight = FontWeight.Bold)
 )
 
 val Typography = Typography(
@@ -86,22 +70,22 @@ val Typography = Typography(
     labelLarge = TextStyle(
         fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.Medium,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
+        fontSize = 11.sp,
+        lineHeight = 16.sp,
         letterSpacing = 0.1.sp
     ),
     labelMedium = TextStyle(
         fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 15.sp,
+        fontSize = 10.sp,
+        lineHeight = 14.sp,
         letterSpacing = 0.5.sp
     ),
     labelSmall = TextStyle(
         fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.Medium,
         fontSize = 9.sp,
-        lineHeight = 13.sp,
+        lineHeight = 12.sp,
         letterSpacing = 0.5.sp
     )
 )
