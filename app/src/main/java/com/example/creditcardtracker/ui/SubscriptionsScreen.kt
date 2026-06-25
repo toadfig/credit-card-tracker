@@ -25,7 +25,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.creditcardtracker.data.CreditCard
+import com.example.creditcardtracker.data.Account
+import com.example.creditcardtracker.data.AccountType
 import com.example.creditcardtracker.data.Subscription
 import com.example.creditcardtracker.theme.VaultUiTokens
 import com.example.creditcardtracker.theme.vaultGlass
@@ -38,11 +39,10 @@ fun SubscriptionsScreen(
     modifier: Modifier = Modifier
 ) {
     val subscriptions = viewModel.subscriptions
-    val cards = viewModel.cards
+    val accounts = viewModel.accounts
     var showAddDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    // Formatting for Lakh/Crore in Bangladesh
     val bdtFormatter = remember {
         NumberFormat.getNumberInstance(Locale("en", "IN"))
     }
@@ -50,7 +50,6 @@ fun SubscriptionsScreen(
         return "৳" + bdtFormatter.format(amount)
     }
 
-    // Calculate projected outflow for the next 30 days (sum of active subscriptions)
     val activeSubs = subscriptions.filter { it.isActive }
     val projectedMonthlyOutflow = activeSubs.sumOf { it.amount }
 
@@ -152,7 +151,7 @@ fun SubscriptionsScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Keep track of your active memberships, utilities, and SaaS billing schedules in one clean space.",
+                            text = "Keep track of active memberships, utilities, and recurring SaaS billing schedules in one clean space.",
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -165,10 +164,10 @@ fun SubscriptionsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(items = subscriptions, key = { it.id }) { sub ->
-                        val linkedCard = cards.find { it.id == sub.cardId }
+                        val linkedAccount = accounts.find { it.id == sub.accountId }
                         SubscriptionItem(
                             sub = sub,
-                            card = linkedCard,
+                            account = linkedAccount,
                             formatBdt = ::formatBdt,
                             onDelete = { viewModel.deleteSubscription(sub.id) }
                         )
@@ -177,7 +176,7 @@ fun SubscriptionsScreen(
             }
         }
 
-        if (cards.isNotEmpty()) {
+        if (accounts.isNotEmpty()) {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -192,10 +191,10 @@ fun SubscriptionsScreen(
 
         if (showAddDialog) {
             AddSubscriptionDialog(
-                cards = cards,
+                accounts = accounts,
                 onDismiss = { showAddDialog = false },
-                onConfirm = { cardId, name, amount, billingDay, category ->
-                    viewModel.addSubscription(cardId, name, amount, billingDay, category)
+                onConfirm = { accountId, name, amount, billingDay, category ->
+                    viewModel.addSubscription(accountId, name, amount, billingDay, category)
                     showAddDialog = false
                     Toast.makeText(context, "Subscription logged successfully.", Toast.LENGTH_SHORT).show()
                 }
@@ -207,7 +206,7 @@ fun SubscriptionsScreen(
 @Composable
 fun SubscriptionItem(
     sub: Subscription,
-    card: CreditCard?,
+    account: Account?,
     formatBdt: (Double) -> String,
     onDelete: () -> Unit
 ) {
@@ -270,7 +269,7 @@ fun SubscriptionItem(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "${card?.bank?.uppercase() ?: "Unknown Card"} • Billed Day ${sub.billingDay}",
+                        text = "${account?.name ?: "Unknown Account"} • Billed Day ${sub.billingDay}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -303,17 +302,17 @@ fun SubscriptionItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddSubscriptionDialog(
-    cards: List<CreditCard>,
+    accounts: List<Account>,
     onDismiss: () -> Unit,
-    onConfirm: (cardId: String, name: String, amount: Double, billingDay: Int, category: String) -> Unit
+    onConfirm: (accountId: String, name: String, amount: Double, billingDay: Int, category: String) -> Unit
 ) {
-    var selectedCard by remember { mutableStateOf(cards.firstOrNull()) }
+    var selectedAccount by remember { mutableStateOf(accounts.firstOrNull()) }
     var name by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var billingDay by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("SaaS") }
 
-    var cardDropdownExpanded by remember { mutableStateOf(false) }
+    var accountDropdownExpanded by remember { mutableStateOf(false) }
     var categoryDropdownExpanded by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf("") }
 
@@ -335,31 +334,31 @@ fun AddSubscriptionDialog(
                     )
                 }
 
-                // Card Selector Dropdown
+                // Account Selector Dropdown
                 ExposedDropdownMenuBox(
-                    expanded = cardDropdownExpanded,
-                    onExpandedChange = { cardDropdownExpanded = it }
+                    expanded = accountDropdownExpanded,
+                    onExpandedChange = { accountDropdownExpanded = it }
                 ) {
                     OutlinedTextField(
-                        value = selectedCard?.let { "${it.bank.uppercase()} (${it.name})" } ?: "Select Card",
+                        value = selectedAccount?.let { "${it.bank.uppercase()} (${it.name})" } ?: "Select Account",
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Charge Credit Card") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cardDropdownExpanded) },
+                        label = { Text("Charge Account") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = accountDropdownExpanded) },
                         modifier = Modifier
                             .menuAnchor()
                             .fillMaxWidth()
                     )
                     ExposedDropdownMenu(
-                        expanded = cardDropdownExpanded,
-                        onDismissRequest = { cardDropdownExpanded = false }
+                        expanded = accountDropdownExpanded,
+                        onDismissRequest = { accountDropdownExpanded = false }
                     ) {
-                        cards.forEach { card ->
+                        accounts.forEach { acc ->
                             DropdownMenuItem(
-                                text = { Text("${card.bank.uppercase()} - ${card.name} (•••• ${card.cardNumber.takeLast(4)})") },
+                                text = { Text("${acc.bank.uppercase()} - ${acc.name}") },
                                 onClick = {
-                                    selectedCard = card
-                                    cardDropdownExpanded = false
+                                    selectedAccount = acc
+                                    accountDropdownExpanded = false
                                 }
                             )
                         }
@@ -435,10 +434,10 @@ fun AddSubscriptionDialog(
             TextButton(onClick = {
                 val amtVal = amount.toDoubleOrNull() ?: 0.0
                 val dayVal = billingDay.toIntOrNull() ?: 0
-                val activeCard = selectedCard
+                val activeAccount = selectedAccount
 
-                if (activeCard == null) {
-                    errorText = "Please select a card."
+                if (activeAccount == null) {
+                    errorText = "Please select an account."
                 } else if (name.isBlank()) {
                     errorText = "Please enter a subscription name."
                 } else if (amtVal <= 0.0) {
@@ -446,7 +445,7 @@ fun AddSubscriptionDialog(
                 } else if (dayVal !in 1..31) {
                     errorText = "Billing day must be between 1 and 31."
                 } else {
-                    onConfirm(activeCard.id, name.trim(), amtVal, dayVal, selectedCategory)
+                    onConfirm(activeAccount.id, name.trim(), amtVal, dayVal, selectedCategory)
                 }
             }) {
                 Text("Log", fontWeight = FontWeight.Bold)

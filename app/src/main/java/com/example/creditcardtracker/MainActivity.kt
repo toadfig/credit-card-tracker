@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Settings
@@ -37,9 +38,10 @@ import com.example.creditcardtracker.theme.animatedVaultGradient
 import com.example.creditcardtracker.ui.*
 
 enum class AppTab(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Overview("Vault", Icons.Default.Home),
-    Expenses("Expenses", Icons.AutoMirrored.Filled.List),
-    Subscriptions("Subscriptions", Icons.Default.Autorenew),
+    Overview("Dashboard", Icons.Default.Home),
+    Expenses("Ledger", Icons.AutoMirrored.Filled.List),
+    Budgets("Budgets", Icons.Default.PieChart),
+    Subscriptions("Bills", Icons.Default.Autorenew),
     Payments("Payments", Icons.Default.Payments)
 }
 
@@ -113,10 +115,11 @@ class MainActivity : FragmentActivity() {
                                         title = {
                                             Text(
                                                 text = when (currentTab) {
-                                                    AppTab.Overview -> "Secure Vault"
-                                                    AppTab.Expenses -> "Expenses Log"
-                                                    AppTab.Subscriptions -> "Subscriptions"
-                                                    AppTab.Payments -> "Payments Log"
+                                                    AppTab.Overview -> "Secure Dashboard"
+                                                    AppTab.Expenses -> "Transactions Ledger"
+                                                    AppTab.Budgets -> "Budgets & Savings"
+                                                    AppTab.Subscriptions -> "Recurring & Bills"
+                                                    AppTab.Payments -> "Card Payments Log"
                                                 },
                                                 fontWeight = FontWeight.Bold,
                                                 style = MaterialTheme.typography.titleMedium
@@ -178,6 +181,7 @@ class MainActivity : FragmentActivity() {
                                                 onManageCardsClick = { overlayScreen = OverlayScreen.ManageCards }
                                             )
                                             AppTab.Expenses -> ExpensesScreen(viewModel = viewModel)
+                                            AppTab.Budgets -> BudgetsScreen(viewModel = viewModel)
                                             AppTab.Subscriptions -> SubscriptionsScreen(viewModel = viewModel)
                                             AppTab.Payments -> PaymentsScreen(viewModel = viewModel)
                                         }

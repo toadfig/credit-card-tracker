@@ -5,27 +5,34 @@ import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
-import com.example.creditcardtracker.data.CreditCard
+import com.example.creditcardtracker.data.Account
+import com.example.creditcardtracker.data.AccountType
 import com.example.creditcardtracker.data.DatabaseHelper
-import com.example.creditcardtracker.data.Expense
+import com.example.creditcardtracker.data.Transaction
+import com.example.creditcardtracker.data.TransactionType
 import com.example.creditcardtracker.data.Payment
 import com.example.creditcardtracker.data.Subscription
 import com.example.creditcardtracker.data.LoungeVisit
 import com.example.creditcardtracker.data.EmiPlan
+import com.example.creditcardtracker.data.Budget
+import com.example.creditcardtracker.data.SavingsGoal
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.Calendar
+import java.util.Locale
 
 class TrackerViewModel(application: Application) : AndroidViewModel(application) {
     private val dbHelper = DatabaseHelper(application)
     private val sharedPrefs = application.getSharedPreferences("cctracker_prefs", Context.MODE_PRIVATE)
 
-    val cards = mutableStateListOf<CreditCard>()
-    val expenses = mutableStateListOf<Expense>()
+    val accounts = mutableStateListOf<Account>()
+    val transactions = mutableStateListOf<Transaction>()
     val payments = mutableStateListOf<Payment>()
     val subscriptions = mutableStateListOf<Subscription>()
     val loungeVisits = mutableStateListOf<LoungeVisit>()
     val emiPlans = mutableStateListOf<EmiPlan>()
+    val budgets = mutableStateListOf<Budget>()
+    val savingsGoals = mutableStateListOf<SavingsGoal>()
 
     val isBiometricEnabled = mutableStateOf(sharedPrefs.getBoolean("biometric_enabled", false))
     val isDynamicColorEnabled = mutableStateOf(sharedPrefs.getBoolean("dynamic_color_enabled", true))
@@ -34,13 +41,14 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
     init {
         syncState()
+        checkAndProcessBudgetRollover()
     }
 
     private fun syncState() {
-        cards.clear()
-        cards.addAll(dbHelper.cards)
-        expenses.clear()
-        expenses.addAll(dbHelper.expenses)
+        accounts.clear()
+        accounts.addAll(dbHelper.accounts)
+        transactions.clear()
+        transactions.addAll(dbHelper.transactions)
         payments.clear()
         payments.addAll(dbHelper.payments)
         subscriptions.clear()
@@ -49,6 +57,10 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         loungeVisits.addAll(dbHelper.loungeVisits)
         emiPlans.clear()
         emiPlans.addAll(dbHelper.emiPlans)
+        budgets.clear()
+        budgets.addAll(dbHelper.budgets)
+        savingsGoals.clear()
+        savingsGoals.addAll(dbHelper.savingsGoals)
     }
 
     fun setBiometricEnabled(enabled: Boolean) {
@@ -64,43 +76,47 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         isDynamicColorEnabled.value = enabled
     }
 
-    fun addCard(
+    fun addAccount(
         name: String,
         bank: String,
-        cardNumber: String,
-        expiryDate: String,
-        cvv: String,
-        creditLimit: Double,
-        statementDay: Int,
-        dueDay: Int,
-        annualFee: Double,
-        isFeeRedeemable: Boolean,
-        feeRedemptionLimit: Double,
-        feeRedemptionUnit: String,
-        cardColorIndex: Int,
+        accountType: AccountType,
+        balance: Double,
+        creditLimit: Double = 0.0,
+        cardNumber: String = "",
+        expiryDate: String = "",
+        cvv: String = "",
+        statementDay: Int = 1,
+        dueDay: Int = 1,
+        annualFee: Double = 0.0,
+        isFeeRedeemable: Boolean = false,
+        feeRedemptionLimit: Double = 0.0,
+        feeRedemptionUnit: String = "Spend",
+        accountColorIndex: Int = 0,
         isSmsTrackingEnabled: Boolean = false,
         smsSender: String = "",
-        cardType: String = "Visa",
-        cardTier: String = "Classic",
+        cardType: String? = "Visa",
+        cardTier: String? = "Classic",
         annualLoungeQuota: Int = 0,
         cashbackRate: Double = 0.0,
         rewardPointsRate: Double = 0.0,
         bankHelpline: String = ""
     ) {
-        val newCard = CreditCard(
+        val newAccount = Account(
             name = name,
             bank = bank,
+            accountType = accountType,
+            balance = balance,
+            creditLimit = creditLimit,
             cardNumber = cardNumber,
             expiryDate = expiryDate,
             cvv = cvv,
-            creditLimit = creditLimit,
             statementDay = statementDay,
             dueDay = dueDay,
             annualFee = annualFee,
             isFeeRedeemable = isFeeRedeemable,
             feeRedemptionLimit = feeRedemptionLimit,
             feeRedemptionUnit = feeRedemptionUnit,
-            cardColorIndex = cardColorIndex,
+            accountColorIndex = accountColorIndex,
             isSmsTrackingEnabled = isSmsTrackingEnabled,
             smsSender = smsSender,
             cardType = cardType,
@@ -110,27 +126,27 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             rewardPointsRate = rewardPointsRate,
             bankHelpline = bankHelpline
         )
-        dbHelper.cards.add(newCard)
+        dbHelper.accounts.add(newAccount)
         dbHelper.saveData()
         syncState()
     }
 
-    fun deleteCard(cardId: String) {
-        dbHelper.cards.removeAll { it.id == cardId }
-        dbHelper.expenses.removeAll { it.cardId == cardId }
-        dbHelper.payments.removeAll { it.cardId == cardId }
-        dbHelper.subscriptions.removeAll { it.cardId == cardId }
-        dbHelper.loungeVisits.removeAll { it.cardId == cardId }
-        dbHelper.emiPlans.removeAll { it.cardId == cardId }
+    fun deleteAccount(accountId: String) {
+        dbHelper.accounts.removeAll { it.id == accountId }
+        dbHelper.transactions.removeAll { it.sourceAccountId == accountId || it.destinationAccountId == accountId }
+        dbHelper.payments.removeAll { it.cardId == accountId }
+        dbHelper.subscriptions.removeAll { it.accountId == accountId }
+        dbHelper.loungeVisits.removeAll { it.accountId == accountId }
+        dbHelper.emiPlans.removeAll { it.accountId == accountId }
         dbHelper.saveData()
         syncState()
-        if (selectedIndex.value >= cards.size && cards.isNotEmpty()) {
-            selectedIndex.value = cards.size - 1
+        if (selectedIndex.value >= accounts.size && accounts.isNotEmpty()) {
+            selectedIndex.value = accounts.size - 1
         }
     }
 
-    fun updateCardSettings(
-        cardId: String,
+    fun updateAccountSettings(
+        accountId: String,
         isSmsEnabled: Boolean,
         smsSender: String,
         loungeQuota: Int,
@@ -138,10 +154,10 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         rewardPointsRate: Double,
         helpline: String
     ) {
-        val index = dbHelper.cards.indexOfFirst { it.id == cardId }
+        val index = dbHelper.accounts.indexOfFirst { it.id == accountId }
         if (index != -1) {
-            val oldCard = dbHelper.cards[index]
-            dbHelper.cards[index] = oldCard.copy(
+            val oldAccount = dbHelper.accounts[index]
+            dbHelper.accounts[index] = oldAccount.copy(
                 isSmsTrackingEnabled = isSmsEnabled,
                 smsSender = smsSender,
                 annualLoungeQuota = loungeQuota,
@@ -154,8 +170,10 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun addExpense(
-        cardId: String,
+    fun addTransaction(
+        type: TransactionType,
+        sourceAccountId: String,
+        destinationAccountId: String? = null,
         amount: Double,
         category: String,
         description: String,
@@ -163,8 +181,10 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         currency: String = "BDT",
         exchangeRate: Double = 1.0
     ) {
-        val newExpense = Expense(
-            cardId = cardId,
+        val newTx = Transaction(
+            type = type,
+            sourceAccountId = sourceAccountId,
+            destinationAccountId = destinationAccountId,
             amount = amount,
             category = category,
             description = description,
@@ -172,15 +192,68 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             currency = currency,
             exchangeRate = exchangeRate
         )
-        dbHelper.expenses.add(newExpense)
+        dbHelper.transactions.add(newTx)
+        updateBalanceForTx(newTx, isAddition = true)
         dbHelper.saveData()
         syncState()
     }
 
-    fun deleteExpense(expenseId: String) {
-        dbHelper.expenses.removeAll { it.id == expenseId }
-        dbHelper.saveData()
-        syncState()
+    fun deleteTransaction(txId: String) {
+        val tx = dbHelper.transactions.find { it.id == txId }
+        if (tx != null) {
+            updateBalanceForTx(tx, isAddition = false)
+            dbHelper.transactions.remove(tx)
+            dbHelper.saveData()
+            syncState()
+        }
+    }
+
+    private fun updateBalanceForTx(tx: Transaction, isAddition: Boolean) {
+        val multiplier = if (isAddition) 1 else -1
+        
+        val srcIndex = dbHelper.accounts.indexOfFirst { it.id == tx.sourceAccountId }
+        if (srcIndex != -1) {
+            val account = dbHelper.accounts[srcIndex]
+            val amountDiff = tx.amount * multiplier
+            val newBalance = when (tx.type) {
+                TransactionType.INCOME -> {
+                    if (account.accountType == AccountType.CREDIT_CARD) {
+                        account.balance - amountDiff
+                    } else {
+                        account.balance + amountDiff
+                    }
+                }
+                TransactionType.EXPENSE -> {
+                    if (account.accountType == AccountType.CREDIT_CARD) {
+                        account.balance + amountDiff
+                    } else {
+                        account.balance - amountDiff
+                    }
+                }
+                TransactionType.TRANSFER -> {
+                    if (account.accountType == AccountType.CREDIT_CARD) {
+                        account.balance + amountDiff
+                    } else {
+                        account.balance - amountDiff
+                    }
+                }
+            }
+            dbHelper.accounts[srcIndex] = account.copy(balance = newBalance)
+        }
+        
+        if (tx.type == TransactionType.TRANSFER && tx.destinationAccountId != null) {
+            val destIndex = dbHelper.accounts.indexOfFirst { it.id == tx.destinationAccountId }
+            if (destIndex != -1) {
+                val account = dbHelper.accounts[destIndex]
+                val amountDiff = tx.amount * multiplier
+                val newBalance = if (account.accountType == AccountType.CREDIT_CARD) {
+                    account.balance - amountDiff
+                } else {
+                    account.balance + amountDiff
+                }
+                dbHelper.accounts[destIndex] = account.copy(balance = newBalance)
+            }
+        }
     }
 
     fun addPayment(cardId: String, amount: Double, date: Long, notes: String) {
@@ -191,18 +264,34 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             notes = notes
         )
         dbHelper.payments.add(newPayment)
+        
+        // Paying off credit card reduces outstanding balance
+        val index = dbHelper.accounts.indexOfFirst { it.id == cardId }
+        if (index != -1) {
+            val account = dbHelper.accounts[index]
+            dbHelper.accounts[index] = account.copy(balance = account.balance - amount)
+        }
+        
         dbHelper.saveData()
         syncState()
     }
 
     fun deletePayment(paymentId: String) {
-        dbHelper.payments.removeAll { it.id == paymentId }
-        dbHelper.saveData()
-        syncState()
+        val payment = dbHelper.payments.find { it.id == paymentId }
+        if (payment != null) {
+            val index = dbHelper.accounts.indexOfFirst { it.id == payment.cardId }
+            if (index != -1) {
+                val account = dbHelper.accounts[index]
+                dbHelper.accounts[index] = account.copy(balance = account.balance + payment.amount)
+            }
+            dbHelper.payments.remove(payment)
+            dbHelper.saveData()
+            syncState()
+        }
     }
 
-    fun addSubscription(cardId: String, name: String, amount: Double, billingDay: Int, category: String) {
-        val newSub = Subscription(cardId = cardId, name = name, amount = amount, billingDay = billingDay, category = category)
+    fun addSubscription(accountId: String, name: String, amount: Double, billingDay: Int, category: String) {
+        val newSub = Subscription(accountId = accountId, name = name, amount = amount, billingDay = billingDay, category = category)
         dbHelper.subscriptions.add(newSub)
         dbHelper.saveData()
         syncState()
@@ -214,8 +303,8 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         syncState()
     }
 
-    fun addLoungeVisit(cardId: String, loungeName: String, airport: String, date: Long, guestsCount: Int) {
-        val newVisit = LoungeVisit(cardId = cardId, loungeName = loungeName, airport = airport, date = date, guestsCount = guestsCount)
+    fun addLoungeVisit(accountId: String, loungeName: String, airport: String, date: Long, guestsCount: Int) {
+        val newVisit = LoungeVisit(accountId = accountId, loungeName = loungeName, airport = airport, date = date, guestsCount = guestsCount)
         dbHelper.loungeVisits.add(newVisit)
         dbHelper.saveData()
         syncState()
@@ -227,9 +316,9 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         syncState()
     }
 
-    fun addEmiPlan(cardId: String, merchant: String, totalAmount: Double, monthlyInstallment: Double, monthsDuration: Int, startDate: Long) {
+    fun addEmiPlan(accountId: String, merchant: String, totalAmount: Double, monthlyInstallment: Double, monthsDuration: Int, startDate: Long) {
         val newEmi = EmiPlan(
-            cardId = cardId,
+            accountId = accountId,
             merchant = merchant,
             totalAmount = totalAmount,
             monthlyInstallment = monthlyInstallment,
@@ -247,16 +336,125 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         syncState()
     }
 
-    fun exportData(outputStream: FileOutputStream, password: CharArray): Boolean {
-        return dbHelper.exportBackup(outputStream, password)
+    // Budgets CRUD
+    fun addBudget(category: String, limitAmount: Double, isRolloverEnabled: Boolean = false) {
+        val newBudget = Budget(category = category, limitAmount = limitAmount, isRolloverEnabled = isRolloverEnabled)
+        dbHelper.budgets.add(newBudget)
+        dbHelper.saveData()
+        syncState()
     }
 
-    fun importData(inputStream: FileInputStream, password: CharArray): Boolean {
-        val success = dbHelper.importBackup(inputStream, password)
-        if (success) {
+    fun deleteBudget(budgetId: String) {
+        dbHelper.budgets.removeAll { it.id == budgetId }
+        dbHelper.saveData()
+        syncState()
+    }
+
+    fun toggleBudgetRollover(budgetId: String) {
+        val index = dbHelper.budgets.indexOfFirst { it.id == budgetId }
+        if (index != -1) {
+            val budget = dbHelper.budgets[index]
+            dbHelper.budgets[index] = budget.copy(isRolloverEnabled = !budget.isRolloverEnabled)
+            dbHelper.saveData()
             syncState()
         }
-        return success
+    }
+
+    // Savings Goals CRUD
+    fun addSavingsGoal(name: String, targetAmount: Double, currentAmount: Double, targetDate: Long) {
+        val newGoal = SavingsGoal(name = name, targetAmount = targetAmount, currentAmount = currentAmount, targetDate = targetDate)
+        dbHelper.savingsGoals.add(newGoal)
+        dbHelper.saveData()
+        syncState()
+    }
+
+    fun updateSavingsGoalProgress(goalId: String, currentAmount: Double) {
+        val index = dbHelper.savingsGoals.indexOfFirst { it.id == goalId }
+        if (index != -1) {
+            val goal = dbHelper.savingsGoals[index]
+            dbHelper.savingsGoals[index] = goal.copy(currentAmount = currentAmount)
+            dbHelper.saveData()
+            syncState()
+        }
+    }
+
+    fun deleteSavingsGoal(goalId: String) {
+        dbHelper.savingsGoals.removeAll { it.id == goalId }
+        dbHelper.saveData()
+        syncState()
+    }
+
+    // Rollover check
+    fun checkAndProcessBudgetRollover() {
+        val now = System.currentTimeMillis()
+        val currentMonthStart = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        var updated = false
+        dbHelper.budgets.forEachIndexed { index, budget ->
+            val budgetCalendar = Calendar.getInstance().apply { timeInMillis = budget.startDate }
+            val currentCalendar = Calendar.getInstance().apply { timeInMillis = now }
+            
+            val isSameMonth = budgetCalendar.get(Calendar.YEAR) == currentCalendar.get(Calendar.YEAR) &&
+                    budgetCalendar.get(Calendar.MONTH) == currentCalendar.get(Calendar.MONTH)
+            
+            if (!isSameMonth) {
+                val startOfBudgetMonth = Calendar.getInstance().apply {
+                    timeInMillis = budget.startDate
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                
+                val endOfBudgetMonth = Calendar.getInstance().apply {
+                    timeInMillis = budget.startDate
+                    set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+                    set(Calendar.HOUR_OF_DAY, 23)
+                    set(Calendar.MINUTE, 59)
+                    set(Calendar.SECOND, 59)
+                    set(Calendar.MILLISECOND, 999)
+                }.timeInMillis
+
+                val spentInBudgetMonth = dbHelper.transactions
+                    .filter { it.type == TransactionType.EXPENSE && it.category == budget.category && it.date in startOfBudgetMonth..endOfBudgetMonth }
+                    .sumOf { it.amount * it.exchangeRate }
+                
+                val leftover = budget.limitAmount + budget.rolloverAmount - spentInBudgetMonth
+                val nextRollover = if (budget.isRolloverEnabled) leftover else 0.0
+                
+                dbHelper.budgets[index] = budget.copy(
+                    rolloverAmount = nextRollover,
+                    startDate = currentMonthStart,
+                    spentAmount = 0.0
+                )
+                updated = true
+            }
+        }
+        if (updated) {
+            dbHelper.saveData()
+            syncState()
+        }
+    }
+
+    fun getSpentForCategoryThisMonth(category: String): Double {
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startOfMonth = calendar.timeInMillis
+        
+        return transactions
+            .filter { it.type == TransactionType.EXPENSE && it.category == category && it.date >= startOfMonth }
+            .sumOf { it.amount * it.exchangeRate }
     }
 
     // Calculations
@@ -313,11 +511,12 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         return dueCalendar.timeInMillis
     }
 
-    fun getActiveEmiInstallmentsForCard(cardId: String): Double {
-        val currentRange = getBillingCycleRange(cards.firstOrNull { it.id == cardId }?.statementDay ?: 1)
+    fun getActiveEmiInstallmentsForAccount(accountId: String): Double {
+        val account = accounts.firstOrNull { it.id == accountId } ?: return 0.0
+        val currentRange = getBillingCycleRange(account.statementDay)
         val cycleStart = currentRange.first
 
-        return emiPlans.filter { it.cardId == cardId && it.isActive }.sumOf { emi ->
+        return emiPlans.filter { it.accountId == accountId && it.isActive }.sumOf { emi ->
             val emiStartCal = Calendar.getInstance().apply { timeInMillis = emi.startDate }
             val cycleStartCal = Calendar.getInstance().apply { timeInMillis = cycleStart }
 
@@ -332,19 +531,19 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun getSpendInCurrentCycle(card: CreditCard): Double {
-        val range = getBillingCycleRange(card.statementDay)
-        val standardSpend = expenses
-            .filter { it.cardId == card.id && it.date in range.first..range.second }
+    fun getSpendInCurrentCycle(account: Account): Double {
+        val range = getBillingCycleRange(account.statementDay)
+        val standardSpend = transactions
+            .filter { it.sourceAccountId == account.id && it.type == TransactionType.EXPENSE && it.date in range.first..range.second }
             .sumOf { it.amount * it.exchangeRate }
-        val emiSpend = getActiveEmiInstallmentsForCard(card.id)
+        val emiSpend = getActiveEmiInstallmentsForAccount(account.id)
         return standardSpend + emiSpend
     }
 
-    fun getPaymentsInCurrentCycle(card: CreditCard): Double {
-        val range = getBillingCycleRange(card.statementDay)
+    fun getPaymentsInCurrentCycle(account: Account): Double {
+        val range = getBillingCycleRange(account.statementDay)
         return payments
-            .filter { it.cardId == card.id && it.date in range.first..range.second }
+            .filter { it.cardId == account.id && it.date in range.first..range.second }
             .sumOf { it.amount }
     }
 
@@ -358,25 +557,25 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             val file = java.io.File(directory, filename)
 
             java.io.FileWriter(file).use { writer ->
-                // Cards section
-                writer.append("--- CARDS ---\n")
-                writer.append("ID,Bank,Name,Limit,CardType,CardTier,Helpline,LoungeQuota,CashbackRate,PointsRate\n")
-                cards.forEach { card ->
-                    writer.append("${card.id},${card.bank},${card.name},${card.creditLimit},${card.safeCardType},${card.safeCardTier},${card.bankHelpline},${card.annualLoungeQuota},${card.cashbackRate},${card.rewardPointsRate}\n")
+                // Accounts section
+                writer.append("--- ACCOUNTS ---\n")
+                writer.append("ID,Type,Bank,Name,Balance,Limit,CardType,CardTier,Helpline,LoungeQuota,CashbackRate,PointsRate\n")
+                accounts.forEach { account ->
+                    writer.append("${account.id},${account.accountType},${account.bank},${account.name},${account.balance},${account.creditLimit},${account.safeCardType},${account.safeCardTier},${account.bankHelpline},${account.annualLoungeQuota},${account.cashbackRate},${account.rewardPointsRate}\n")
                 }
                 writer.append("\n")
 
-                // Expenses section
-                writer.append("--- EXPENSES ---\n")
-                writer.append("ID,CardID,Amount,Currency,ExchangeRate,Category,Description,Date\n")
-                expenses.forEach { exp ->
-                    writer.append("${exp.id},${exp.cardId},${exp.amount},${exp.currency},${exp.exchangeRate},${exp.category},${exp.description},${exp.date}\n")
+                // Transactions section
+                writer.append("--- TRANSACTIONS ---\n")
+                writer.append("ID,Type,SourceAccount,DestinationAccount,Amount,Currency,ExchangeRate,Category,Description,Date\n")
+                transactions.forEach { tx ->
+                    writer.append("${tx.id},${tx.type},${tx.sourceAccountId},${tx.destinationAccountId ?: ""},${tx.amount},${tx.currency},${tx.exchangeRate},${tx.category},${tx.description},${tx.date}\n")
                 }
                 writer.append("\n")
 
                 // Payments section
                 writer.append("--- PAYMENTS ---\n")
-                writer.append("ID,CardID,Amount,Date,Notes\n")
+                writer.append("ID,AccountID,Amount,Date,Notes\n")
                 payments.forEach { pay ->
                     writer.append("${pay.id},${pay.cardId},${pay.amount},${pay.date},${pay.notes}\n")
                 }
@@ -384,25 +583,25 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
                 // Subscriptions section
                 writer.append("--- SUBSCRIPTIONS ---\n")
-                writer.append("ID,CardID,Name,Amount,BillingDay,Category,Active\n")
+                writer.append("ID,AccountID,Name,Amount,BillingDay,Category,Active\n")
                 subscriptions.forEach { sub ->
-                    writer.append("${sub.id},${sub.cardId},${sub.name},${sub.amount},${sub.billingDay},${sub.category},${sub.isActive}\n")
+                    writer.append("${sub.id},${sub.accountId},${sub.name},${sub.amount},${sub.billingDay},${sub.category},${sub.isActive}\n")
                 }
                 writer.append("\n")
 
                 // Lounge Visits section
                 writer.append("--- LOUNGE VISITS ---\n")
-                writer.append("ID,CardID,LoungeName,Airport,Date,Guests\n")
+                writer.append("ID,AccountID,LoungeName,Airport,Date,Guests\n")
                 loungeVisits.forEach { visit ->
-                    writer.append("${visit.id},${visit.cardId},${visit.loungeName},${visit.airport},${visit.date},${visit.guestsCount}\n")
+                    writer.append("${visit.id},${visit.accountId},${visit.loungeName},${visit.airport},${visit.date},${visit.guestsCount}\n")
                 }
                 writer.append("\n")
 
                 // EMI Plans section
                 writer.append("--- EMI PLANS ---\n")
-                writer.append("ID,CardID,Merchant,TotalAmount,Installment,Months,StartDate,Active\n")
+                writer.append("ID,AccountID,Merchant,TotalAmount,Installment,Months,StartDate,Active\n")
                 emiPlans.forEach { emi ->
-                    writer.append("${emi.id},${emi.cardId},${emi.merchant},${emi.totalAmount},${emi.monthlyInstallment},${emi.monthsDuration},${emi.startDate},${emi.isActive}\n")
+                    writer.append("${emi.id},${emi.accountId},${emi.merchant},${emi.totalAmount},${emi.monthlyInstallment},${emi.monthsDuration},${emi.startDate},${emi.isActive}\n")
                 }
             }
             return file.absolutePath
@@ -410,6 +609,18 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             android.util.Log.e("TrackerViewModel", "Failed to export CSV: ${e.message}")
             return null
         }
+    }
+
+    fun exportData(outputStream: FileOutputStream, password: CharArray): Boolean {
+        return dbHelper.exportBackup(outputStream, password)
+    }
+
+    fun importData(inputStream: FileInputStream, password: CharArray): Boolean {
+        val success = dbHelper.importBackup(inputStream, password)
+        if (success) {
+            syncState()
+        }
+        return success
     }
 
     fun getRecentSmsSenders(context: Context): List<String> {
@@ -442,9 +653,9 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         return senders.toList().sorted()
     }
 
-    fun scanInboxForCardSms(context: Context, card: CreditCard): List<TempSmsExpense> {
+    fun scanInboxForAccountSms(context: Context, account: Account): List<TempSmsExpense> {
         val list = mutableListOf<TempSmsExpense>()
-        if (card.smsSender.isBlank()) return list
+        if (account.smsSender.isBlank()) return list
 
         if (androidx.core.content.ContextCompat.checkSelfPermission(
                 context,
@@ -469,7 +680,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                 val bodyIdx = it.getColumnIndexOrThrow("body")
                 val dateIdx = it.getColumnIndexOrThrow("date")
 
-                val targetSenderNormalized = com.example.creditcardtracker.security.SmsParser.normalizeSender(card.smsSender)
+                val targetSenderNormalized = com.example.creditcardtracker.security.SmsParser.normalizeSender(account.smsSender)
 
                 while (it.moveToNext()) {
                     val rawSender = it.getString(addressIdx) ?: ""
@@ -478,8 +689,14 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
                     val normalizedIncoming = com.example.creditcardtracker.security.SmsParser.normalizeSender(rawSender)
 
-                    if (normalizedIncoming.contains(targetSenderNormalized) || 
-                        targetSenderNormalized.contains(normalizedIncoming)) {
+                    val senderMatch = normalizedIncoming.contains(targetSenderNormalized) || 
+                                     targetSenderNormalized.contains(normalizedIncoming)
+                    
+                    val digitMatch = if (account.cardNumber.length >= 4) {
+                        body.contains(account.cardNumber.takeLast(4))
+                    } else false
+
+                    if (senderMatch || digitMatch) {
                         val amount = com.example.creditcardtracker.security.SmsParser.parseAmount(body)
                         if (amount != null && amount > 0.0) {
                             val merchant = com.example.creditcardtracker.security.SmsParser.parseMerchant(body)

@@ -20,7 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.creditcardtracker.data.CreditCard
+import com.example.creditcardtracker.data.Account
+import com.example.creditcardtracker.data.AccountType
 import com.example.creditcardtracker.data.Payment as PaymentModel
 import com.example.creditcardtracker.theme.VaultUiTokens
 import com.example.creditcardtracker.theme.vaultGlass
@@ -34,7 +35,7 @@ fun PaymentsScreen(
     modifier: Modifier = Modifier
 ) {
     val payments = viewModel.payments
-    val cards = viewModel.cards
+    val creditCards = viewModel.accounts.filter { it.accountType == AccountType.CREDIT_CARD }
     var showAddDialog by remember { mutableStateOf(false) }
 
     Box(
@@ -71,7 +72,7 @@ fun PaymentsScreen(
                 ) {
                     val sortedPayments = payments.sortedByDescending { it.date }
                     items(sortedPayments) { payment ->
-                        val linkedCard = cards.find { it.id == payment.cardId }
+                        val linkedCard = creditCards.find { it.id == payment.cardId }
                         PaymentItem(
                             payment = payment,
                             card = linkedCard,
@@ -82,7 +83,7 @@ fun PaymentsScreen(
             }
         }
 
-        if (cards.isNotEmpty()) {
+        if (creditCards.isNotEmpty()) {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -97,7 +98,7 @@ fun PaymentsScreen(
 
         if (showAddDialog) {
             AddPaymentDialog(
-                cards = cards,
+                cards = creditCards,
                 onDismiss = { showAddDialog = false },
                 onConfirm = { cardId, amount, date, notes ->
                     viewModel.addPayment(cardId, amount, date, notes)
@@ -111,7 +112,7 @@ fun PaymentsScreen(
 @Composable
 fun PaymentItem(
     payment: PaymentModel,
-    card: CreditCard?,
+    card: Account?,
     onDelete: () -> Unit
 ) {
     val bdtFormatter = remember { NumberFormat.getNumberInstance(Locale("en", "IN")) }
@@ -189,7 +190,7 @@ fun PaymentItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddPaymentDialog(
-    cards: List<CreditCard>,
+    cards: List<Account>,
     onDismiss: () -> Unit,
     onConfirm: (cardId: String, amount: Double, date: Long, notes: String) -> Unit
 ) {

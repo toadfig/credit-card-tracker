@@ -24,8 +24,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.creditcardtracker.data.CreditCard
-import com.example.creditcardtracker.data.Subscription
 import com.example.creditcardtracker.theme.vaultGlass
 import java.io.File
 import java.io.FileInputStream
@@ -41,8 +39,6 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val cards = viewModel.cards
-
     var isBiometricEnabled by viewModel.isBiometricEnabled
     var isDynamicColorEnabled by viewModel.isDynamicColorEnabled
 

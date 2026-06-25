@@ -10,7 +10,9 @@ import android.provider.Telephony
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.creditcardtracker.data.DatabaseHelper
-import com.example.creditcardtracker.data.Expense
+import com.example.creditcardtracker.data.AccountType
+import com.example.creditcardtracker.data.Transaction
+import com.example.creditcardtracker.data.TransactionType
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -31,18 +33,33 @@ class SmsReceiver : BroadcastReceiver() {
 
         val dbHelper = DatabaseHelper(context)
         
-        // Find matching cards with SMS tracking enabled
+        // Find matching accounts with SMS tracking enabled
         val incomingNormalized = SmsParser.normalizeSender(sender)
-        val matchedCards = dbHelper.cards.filter { card ->
-            if (card.isSmsTrackingEnabled && card.smsSender.isNotEmpty()) {
-                val cardNormalized = SmsParser.normalizeSender(card.smsSender)
-                incomingNormalized.contains(cardNormalized) || cardNormalized.contains(incomingNormalized)
-            } else {
-                false
-            }
+        val matchedAccounts = dbHelper.accounts.filter { account ->
+            if (!account.isSmsTrackingEnabled) return@filter false
+            
+            val senderMatch = if (account.smsSender.isNotEmpty()) {
+                val accountSenderNormalized = SmsParser.normalizeSender(account.smsSender)
+                incomingNormalized.contains(accountSenderNormalized) || accountSenderNormalized.contains(incomingNormalized)
+            } else false
+            
+            val bodyMatch = if (account.cardNumber.length >= 4) {
+                body.contains(account.cardNumber.takeLast(4))
+            } else false
+            
+            val mfsMatch = if (account.accountType == AccountType.MFS) {
+                val bankName = account.bank.lowercase(Locale.US)
+                val accountName = account.name.lowercase(Locale.US)
+                (bankName.contains("bkash") && incomingNormalized.contains("BKASH")) ||
+                (bankName.contains("nagad") && incomingNormalized.contains("NAGAD")) ||
+                (accountName.contains("bkash") && incomingNormalized.contains("BKASH")) ||
+                (accountName.contains("nagad") && incomingNormalized.contains("NAGAD"))
+            } else false
+
+            senderMatch || bodyMatch || mfsMatch
         }
 
-        if (matchedCards.isEmpty()) {
+        if (matchedAccounts.isEmpty()) {
             return
         }
 
@@ -55,22 +72,47 @@ class SmsReceiver : BroadcastReceiver() {
         val merchant = SmsParser.parseMerchant(body)
         val category = SmsParser.parseCategory(merchant, body)
 
-        // Insert Expense for each matching card
-        for (card in matchedCards) {
-            val newExpense = Expense(
-                cardId = card.id,
+        // Insert Transaction for each matching account
+        for (account in matchedAccounts) {
+            val bodyLower = body.lowercase(Locale.US)
+            val transactionType = if (bodyLower.contains("received") || 
+                                     bodyLower.contains("credited") || 
+                                     bodyLower.contains("deposit") || 
+                                     bodyLower.contains("cash in") ||
+                                     bodyLower.contains("ref:")) {
+                TransactionType.INCOME
+            } else {
+                TransactionType.EXPENSE
+            }
+
+            val newTx = Transaction(
+                type = transactionType,
+                sourceAccountId = account.id,
                 amount = amount,
                 category = category,
                 description = "Auto SMS: $merchant",
                 date = timestamp
             )
-            dbHelper.expenses.add(newExpense)
+            dbHelper.transactions.add(newTx)
+
+            // Update balance dynamically on the account object
+            val balanceDiff = if (transactionType == TransactionType.INCOME) amount else -amount
+            val accountIndex = dbHelper.accounts.indexOfFirst { it.id == account.id }
+            if (accountIndex != -1) {
+                val targetAccount = dbHelper.accounts[accountIndex]
+                val newBalance = if (targetAccount.accountType == AccountType.CREDIT_CARD) {
+                    if (transactionType == TransactionType.INCOME) targetAccount.balance - amount else targetAccount.balance + amount
+                } else {
+                    targetAccount.balance + balanceDiff
+                }
+                dbHelper.accounts[accountIndex] = targetAccount.copy(balance = newBalance)
+            }
         }
 
         dbHelper.saveData()
         
         // Notify user
-        showNotification(context, amount, merchant, matchedCards[0].name)
+        showNotification(context, amount, merchant, matchedAccounts[0].name)
     }
 
     private fun showNotification(context: Context, amount: Double, merchant: String, cardName: String) {

@@ -28,10 +28,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.creditcardtracker.data.CreditCard
-import com.example.creditcardtracker.data.Expense
+import com.example.creditcardtracker.data.Account
+import com.example.creditcardtracker.data.AccountType
+import com.example.creditcardtracker.data.Transaction
+import com.example.creditcardtracker.data.TransactionType
 import com.example.creditcardtracker.theme.VaultUiTokens
 import com.example.creditcardtracker.theme.vaultGlass
 import java.text.NumberFormat
@@ -43,11 +46,27 @@ fun ExpensesScreen(
     viewModel: TrackerViewModel,
     modifier: Modifier = Modifier
 ) {
-    val expenses = viewModel.expenses
-    val cards = viewModel.cards
+    val transactions = viewModel.transactions
+    val accounts = viewModel.accounts
+    
     var showAddDialog by remember { mutableStateOf(false) }
-    var showAnalytics by remember { mutableStateOf(true) }
+    var addDialogType by remember { mutableStateOf(TransactionType.EXPENSE) }
+    
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedTypeFilter by remember { mutableStateOf<TransactionType?>(null) }
+    var selectedAccountFilterId by remember { mutableStateOf<String?>(null) }
     var selectedCategoryFilter by remember { mutableStateOf<String?>(null) }
+    var showAnalytics by remember { mutableStateOf(true) }
+
+    val inLocale = Locale("en", "IN")
+    val bdtFormatter = remember { 
+        val formatter = NumberFormat.getCurrencyInstance(inLocale)
+        formatter.currency = Currency.getInstance("BDT")
+        formatter
+    }
+    fun formatBdt(amount: Double): String {
+        return bdtFormatter.format(amount)
+    }
 
     Box(
         modifier = modifier
@@ -64,108 +83,171 @@ fun ExpensesScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Expenses Log",
+                    text = "Transactions Ledger",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 
-                if (expenses.isNotEmpty()) {
+                if (transactions.isNotEmpty()) {
                     TextButton(onClick = { showAnalytics = !showAnalytics }) {
                         Text(
-                            text = if (showAnalytics) "Hide Analytics" else "Show Analytics",
+                            text = if (showAnalytics) "Hide Charts" else "Show Charts",
                             style = MaterialTheme.typography.labelMedium
                         )
                     }
                 }
             }
 
+            // Search Bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search description / vendor...") },
+                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = "Search") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            // Filtering Row (Expense / Income / Transfer)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = selectedTypeFilter == null,
+                    onClick = { selectedTypeFilter = null },
+                    label = { Text("All") }
+                )
+                FilterChip(
+                    selected = selectedTypeFilter == TransactionType.EXPENSE,
+                    onClick = { selectedTypeFilter = TransactionType.EXPENSE },
+                    label = { Text("Expenses") }
+                )
+                FilterChip(
+                    selected = selectedTypeFilter == TransactionType.INCOME,
+                    onClick = { selectedTypeFilter = TransactionType.INCOME },
+                    label = { Text("Income") }
+                )
+                FilterChip(
+                    selected = selectedTypeFilter == TransactionType.TRANSFER,
+                    onClick = { selectedTypeFilter = TransactionType.TRANSFER },
+                    label = { Text("Transfers") }
+                )
+            }
+
+            // Filter status indicator
+            if (selectedCategoryFilter != null || selectedAccountFilterId != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    selectedCategoryFilter?.let { cat ->
+                        InputChip(
+                            selected = true,
+                            onClick = { selectedCategoryFilter = null },
+                            label = { Text("Category: $cat") },
+                            trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
+                        )
+                    }
+                    selectedAccountFilterId?.let { accId ->
+                        val acc = accounts.find { it.id == accId }
+                        InputChip(
+                            selected = true,
+                            onClick = { selectedAccountFilterId = null },
+                            label = { Text("Account: ${acc?.name ?: "Unknown"}") },
+                            trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
+                        )
+                    }
+                }
+            }
+
             // Spending Analytics Card
-            if (showAnalytics && expenses.isNotEmpty()) {
+            val expensesOnly = remember(transactions) {
+                transactions.filter { it.type == TransactionType.EXPENSE }
+            }
+            if (showAnalytics && expensesOnly.isNotEmpty() && (selectedTypeFilter == null || selectedTypeFilter == TransactionType.EXPENSE)) {
                 SpendingAnalyticsCard(
-                    expenses = expenses,
+                    expenses = expensesOnly,
                     selectedCategory = selectedCategoryFilter,
                     onCategoryClick = { selectedCategoryFilter = it }
                 )
             }
 
-            if (selectedCategoryFilter != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    InputChip(
-                        selected = true,
-                        onClick = { selectedCategoryFilter = null },
-                        label = { Text("Filter: $selectedCategoryFilter") },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Outlined.Close,
-                                contentDescription = "Clear Filter",
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    )
+            // Ledger List
+            val filteredTransactions = remember(transactions, searchQuery, selectedTypeFilter, selectedAccountFilterId, selectedCategoryFilter) {
+                var list = transactions.toList()
+                if (searchQuery.isNotBlank()) {
+                    list = list.filter { it.description.contains(searchQuery, ignoreCase = true) || it.category.contains(searchQuery, ignoreCase = true) }
                 }
+                if (selectedTypeFilter != null) {
+                    list = list.filter { it.type == selectedTypeFilter }
+                }
+                if (selectedCategoryFilter != null) {
+                    list = list.filter { it.category == selectedCategoryFilter }
+                }
+                if (selectedAccountFilterId != null) {
+                    list = list.filter { it.sourceAccountId == selectedAccountFilterId || it.destinationAccountId == selectedAccountFilterId }
+                }
+                list.sortedByDescending { it.date }
             }
 
-            if (expenses.isEmpty()) {
+            if (filteredTransactions.isEmpty()) {
                 Box(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No expenses recorded. Tap + to add.",
+                        text = "No matching records found.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
-                val sortedExpenses = remember(expenses.size, expenses, selectedCategoryFilter) { 
-                    val sorted = expenses.sortedByDescending { it.date } 
-                    if (selectedCategoryFilter != null) {
-                        sorted.filter { it.category == selectedCategoryFilter }
-                    } else {
-                        sorted
-                    }
-                }
-
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(items = sortedExpenses, key = { it.id }) { expense ->
-                        val linkedCard = cards.find { it.id == expense.cardId }
-                        ExpenseItem(
-                            expense = expense,
-                            card = linkedCard,
-                            onDelete = { viewModel.deleteExpense(expense.id) }
+                    items(items = filteredTransactions, key = { it.id }) { tx ->
+                        val srcAcc = accounts.find { it.id == tx.sourceAccountId }
+                        val destAcc = accounts.find { it.id == tx.destinationAccountId }
+                        TransactionItem(
+                            transaction = tx,
+                            sourceAccount = srcAcc,
+                            destinationAccount = destAcc,
+                            onDelete = { viewModel.deleteTransaction(tx.id) },
+                            onAccountClick = { selectedAccountFilterId = it }
                         )
                     }
                 }
             }
         }
 
-        if (cards.isNotEmpty()) {
+        if (accounts.isNotEmpty()) {
             FloatingActionButton(
-                onClick = { showAddDialog = true },
+                onClick = { 
+                    addDialogType = selectedTypeFilter ?: TransactionType.EXPENSE
+                    showAddDialog = true 
+                },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(bottom = 8.dp)
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Expense")
+                Icon(Icons.Filled.Add, contentDescription = "Add Transaction")
             }
         }
 
         if (showAddDialog) {
-            AddExpenseDialog(
-                cards = cards,
+            AddTransactionDialog(
+                type = addDialogType,
+                accounts = accounts,
                 onDismiss = { showAddDialog = false },
-                onConfirm = { cardId, amount, category, description, date, currency, exchangeRate ->
-                    viewModel.addExpense(cardId, amount, category, description, date, currency, exchangeRate)
+                onConfirm = { type, sourceId, destId, amount, category, desc, date ->
+                    viewModel.addTransaction(type, sourceId, destId, amount, category, desc, date)
                     showAddDialog = false
                 }
             )
@@ -175,7 +257,7 @@ fun ExpensesScreen(
 
 @Composable
 fun SpendingAnalyticsCard(
-    expenses: List<Expense>,
+    expenses: List<Transaction>,
     selectedCategory: String?,
     onCategoryClick: (String?) -> Unit
 ) {
@@ -189,11 +271,21 @@ fun SpendingAnalyticsCard(
         Color(0xFF708090)
     )
 
-    // Calculate sum of expenses per category (converting to BDT)
+    // Calculate sum per category
     val spendByCategory = categories.map { category ->
         expenses.filter { it.category == category }.sumOf { it.amount * it.exchangeRate }
     }
     val totalSpend = spendByCategory.sum()
+
+    val inLocale = Locale("en", "IN")
+    val bdtFormatter = remember { 
+        val formatter = NumberFormat.getCurrencyInstance(inLocale)
+        formatter.currency = Currency.getInstance("BDT")
+        formatter
+    }
+    fun formatBdt(amount: Double): String {
+        return bdtFormatter.format(amount)
+    }
 
     Card(
         modifier = Modifier
@@ -203,7 +295,7 @@ fun SpendingAnalyticsCard(
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                text = "Analytics Summary",
+                text = "Monthly Spending Summary",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
@@ -214,7 +306,7 @@ fun SpendingAnalyticsCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Category Pie Chart Drawn in Canvas with tap gesture detection
+                    // Category Pie Chart
                     Canvas(
                         modifier = Modifier
                             .size(110.dp)
@@ -251,68 +343,64 @@ fun SpendingAnalyticsCard(
                             }
                     ) {
                         var startAngle = -90f
-                        spendByCategory.forEachIndexed { index, amount ->
-                            val sweepAngle = ((amount / totalSpend) * 360f).toFloat()
+                        spendByCategory.forEachIndexed { idx, amount ->
+                            val sweepAngle = (amount / totalSpend).toFloat() * 360f
                             if (sweepAngle > 0f) {
-                                val isSelected = selectedCategory == categories[index]
-                                val hasSelection = selectedCategory != null
-                                val sliceColor = if (hasSelection && !isSelected) {
-                                    categoryColors[index].copy(alpha = 0.25f)
-                                } else {
-                                    categoryColors[index]
-                                }
-
+                                val isSelected = categories[idx] == selectedCategory
+                                val color = categoryColors[idx]
                                 drawArc(
-                                    color = sliceColor,
+                                    color = if (selectedCategory == null || isSelected) color else color.copy(alpha = 0.3f),
                                     startAngle = startAngle,
                                     sweepAngle = sweepAngle,
                                     useCenter = true,
-                                    size = Size(size.width, size.height)
+                                    size = size
                                 )
                                 startAngle += sweepAngle
                             }
                         }
-                        // Draw central circle to make it a donut
+
+                        // Draw hollow center for donut look
                         drawCircle(
-                            color = Color(0xFF111827), // Vault dark background
+                            color = Color(0xFF151922),
                             radius = size.width * 0.28f,
-                            center = Offset(size.width / 2, size.height / 2)
+                            center = center
                         )
                     }
 
-                    // Legend Layout
+                    // Legends Sidebar
                     Column(
-                        modifier = Modifier.padding(start = 16.dp),
+                        modifier = Modifier.weight(1f).padding(start = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        categories.forEachIndexed { index, name ->
-                            val amount = spendByCategory[index]
+                        categories.forEachIndexed { idx, category ->
+                            val amount = spendByCategory[idx]
+                            val percent = if (totalSpend > 0) ((amount / totalSpend) * 100).toInt() else 0
                             if (amount > 0) {
-                                val isSelected = selectedCategory == name
-                                val hasSelection = selectedCategory != null
+                                val isSelected = category == selectedCategory
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     modifier = Modifier
-                                        .clickable {
-                                            onCategoryClick(if (selectedCategory == name) null else name)
-                                        }
-                                        .padding(vertical = 2.dp)
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(if (isSelected) Color.White.copy(alpha = 0.1f) else Color.Transparent)
+                                        .clickable { onCategoryClick(if (isSelected) null else category) }
+                                        .padding(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Box(
                                         modifier = Modifier
                                             .size(10.dp)
-                                            .background(
-                                                color = if (hasSelection && !isSelected) categoryColors[index].copy(alpha = 0.25f) else categoryColors[index],
-                                                shape = RoundedCornerShape(2.dp)
-                                            )
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(categoryColors[idx])
                                     )
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "$name: ৳${amount.toInt()}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontSize = 10.sp,
-                                        color = if (hasSelection && !isSelected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        text = "$category ($percent%)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
                                     )
                                 }
                             }
@@ -320,111 +408,131 @@ fun SpendingAnalyticsCard(
                     }
                 }
             } else {
-                Text("No data to display charts.", style = MaterialTheme.typography.bodySmall)
+                Text("No data to display.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
 @Composable
-fun ExpenseItem(
-    expense: Expense,
-    card: CreditCard?,
-    onDelete: () -> Unit
+fun TransactionItem(
+    transaction: Transaction,
+    sourceAccount: Account?,
+    destinationAccount: Account?,
+    onDelete: () -> Unit,
+    onAccountClick: (String) -> Unit
 ) {
-    val bdtFormat = NumberFormat.getCurrencyInstance(Locale.US).apply { 
-        currency = java.util.Currency.getInstance("BDT") 
+    val inLocale = Locale("en", "IN")
+    val bdtFormatter = remember { 
+        val formatter = NumberFormat.getCurrencyInstance(inLocale)
+        formatter.currency = Currency.getInstance("BDT")
+        formatter
     }
-    val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
+    fun formatBdt(amount: Double): String {
+        return bdtFormatter.format(amount)
+    }
 
-    val categoryIcon = when (expense.category) {
+    val isExpense = transaction.type == TransactionType.EXPENSE
+    val isIncome = transaction.type == TransactionType.INCOME
+    
+    val displayAmount = when (transaction.type) {
+        TransactionType.INCOME -> "+${formatBdt(transaction.amount)}"
+        TransactionType.EXPENSE -> "-${formatBdt(transaction.amount)}"
+        TransactionType.TRANSFER -> formatBdt(transaction.amount)
+    }
+
+    val displayColor = when (transaction.type) {
+        TransactionType.INCOME -> MaterialTheme.colorScheme.primary
+        TransactionType.EXPENSE -> MaterialTheme.colorScheme.error
+        TransactionType.TRANSFER -> MaterialTheme.colorScheme.secondary
+    }
+
+    val icon = when (transaction.category) {
         "Food & Dining" -> Icons.Outlined.Restaurant
         "Groceries" -> Icons.Outlined.LocalGroceryStore
         "Transportation" -> Icons.Outlined.DirectionsCar
         "Shopping" -> Icons.Outlined.ShoppingBag
-        "Utilities" -> Icons.AutoMirrored.Outlined.ReceiptLong
-        else -> Icons.Outlined.Category
+        "Utilities" -> Icons.Outlined.FlashOn
+        "Healthcare" -> Icons.Outlined.MedicalServices
+        "Education" -> Icons.Outlined.School
+        "Salary" -> Icons.Outlined.WorkOutline
+        "Freelance" -> Icons.Outlined.Devices
+        "Transfer" -> Icons.Outlined.SwapHoriz
+        else -> Icons.AutoMirrored.Outlined.ReceiptLong
     }
 
+    val dateStr = SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.US).format(Date(transaction.date))
+
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .vaultGlass(borderRadius = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
+            modifier = Modifier.padding(12.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
+                Surface(
+                    color = displayColor.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.size(44.dp),
+                    contentColor = displayColor
                 ) {
-                    Icon(
-                        imageVector = categoryIcon,
-                        contentDescription = expense.category,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(imageVector = icon, contentDescription = transaction.category)
+                    }
                 }
-
+                Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = expense.description,
-                        style = MaterialTheme.typography.titleSmall,
+                        text = transaction.description.ifEmpty { transaction.category },
+                        style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "${card?.bank?.uppercase() ?: "Unknown Card"} • ${dateFormat.format(expense.date)}",
+                        text = dateStr,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    // Routing tag
+                    val routingText = when (transaction.type) {
+                        TransactionType.TRANSFER -> "${sourceAccount?.name ?: "Unknown"} ➔ ${destinationAccount?.name ?: "Unknown"}"
+                        else -> sourceAccount?.name ?: "Unknown"
+                    }
+                    Text(
+                        text = routingText,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clickable { sourceAccount?.let { onAccountClick(it.id) } }
+                            .padding(top = 2.dp)
                     )
                 }
             }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(horizontalAlignment = Alignment.End) {
-                    // Show original currency
-                    val formattedOrig = if (expense.currency == "USD") {
-                        "$${String.format("%.2f", expense.amount)}"
-                    } else {
-                        "৳${expense.amount.toInt()}"
-                    }
-                    Text(
-                        text = formattedOrig,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    // Show conversion to BDT if foreign currency
-                    if (expense.currency == "USD") {
-                        Text(
-                            text = "৳${(expense.amount * expense.exchangeRate).toInt()}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
+                Text(
+                    text = displayAmount,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = displayColor
+                )
                 IconButton(onClick = onDelete) {
                     Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = "Delete Expense",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
                     )
                 }
             }
@@ -434,203 +542,224 @@ fun ExpenseItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddExpenseDialog(
-    cards: List<CreditCard>,
+fun AddTransactionDialog(
+    type: TransactionType,
+    accounts: List<Account>,
     onDismiss: () -> Unit,
-    onConfirm: (
-        cardId: String, amount: Double, category: String, description: String,
-        date: Long, currency: String, exchangeRate: Double
-    ) -> Unit
+    onConfirm: (TransactionType, String, String?, Double, String, String, Long) -> Unit
 ) {
     val context = LocalContext.current
-
-    var selectedCard by remember { mutableStateOf(cards.firstOrNull()) }
-    var amount by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf(type) }
+    var selectedSourceId by remember { mutableStateOf(accounts.firstOrNull()?.id ?: "") }
+    var selectedDestId by remember { mutableStateOf(accounts.firstOrNull { it.id != selectedSourceId }?.id ?: "") }
+    
+    var amountText by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("Food & Dining") }
-    
-    // Multi-currency details
-    var currency by remember { mutableStateOf("BDT") }
-    var exchangeRate by remember { mutableStateOf("117.5") } // Default USD rate estimate
+    var category by remember { mutableStateOf(if (selectedType == TransactionType.INCOME) "Salary" else "Food & Dining") }
 
-    var errorText by remember { mutableStateOf("") }
-    
-    var selectedDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
-    var showDatePicker by remember { mutableStateOf(false) }
+    val categories = if (selectedType == TransactionType.INCOME) {
+        listOf("Salary", "Freelance", "Investment", "Gift", "Others")
+    } else {
+        listOf("Food & Dining", "Groceries", "Transportation", "Shopping", "Utilities", "Healthcare", "Education", "Entertainment", "Others")
+    }
 
-    val categories = listOf("Food & Dining", "Groceries", "Transportation", "Shopping", "Utilities", "Others")
-    var cardDropdownExpanded by remember { mutableStateOf(false) }
-    var categoryDropdownExpanded by remember { mutableStateOf(false) }
+    var showSourceDropdown by remember { mutableStateOf(false) }
+    var showDestDropdown by remember { mutableStateOf(false) }
+    var showCatDropdown by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Log Expense", fontWeight = FontWeight.Bold) },
+        title = { Text("Log Transaction", fontWeight = FontWeight.Bold) },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                if (errorText.isNotEmpty()) {
-                    Text(
-                        text = errorText,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                ExposedDropdownMenuBox(
-                    expanded = cardDropdownExpanded,
-                    onExpandedChange = { cardDropdownExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = selectedCard?.let { "${it.bank.uppercase()} (${it.name})" } ?: "Select Card",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Select Card") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cardDropdownExpanded) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = cardDropdownExpanded,
-                        onDismissRequest = { cardDropdownExpanded = false }
-                    ) {
-                        cards.forEach { card ->
-                            DropdownMenuItem(
-                                text = { Text("${card.bank.uppercase()} - ${card.name} (•••• ${card.cardNumber.takeLast(4)})") },
-                                onClick = {
-                                    selectedCard = card
-                                    cardDropdownExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Currency Selector Row
+                // Type selector row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text("Currency:")
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = currency == "BDT", onClick = { currency = "BDT" })
-                        Text("BDT (৳)")
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = currency == "USD", onClick = { currency = "USD" })
-                        Text("USD ($)")
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = amount,
-                        onValueChange = { amount = it },
-                        label = { Text("Amount") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        modifier = Modifier.weight(1.2f)
-                    )
-
-                    if (currency == "USD") {
-                        OutlinedTextField(
-                            value = exchangeRate,
-                            onValueChange = { exchangeRate = it },
-                            label = { Text("Rate (to BDT)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            singleLine = true,
+                    listOf(TransactionType.EXPENSE, TransactionType.INCOME, TransactionType.TRANSFER).forEach { t ->
+                        FilterChip(
+                            selected = selectedType == t,
+                            onClick = { 
+                                selectedType = t 
+                                category = if (t == TransactionType.INCOME) "Salary" else "Food & Dining"
+                            },
+                            label = { Text(t.name) },
                             modifier = Modifier.weight(1f)
                         )
                     }
                 }
 
-                ExposedDropdownMenuBox(
-                    expanded = categoryDropdownExpanded,
-                    onExpandedChange = { categoryDropdownExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = selectedCategory,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Category") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = categoryDropdownExpanded,
-                        onDismissRequest = { categoryDropdownExpanded = false }
+                val srcAccount = accounts.find { it.id == selectedSourceId } ?: accounts.firstOrNull()
+                selectedSourceId = srcAccount?.id ?: ""
+
+                Text(
+                    text = when (selectedType) {
+                        TransactionType.EXPENSE -> "Charged Account"
+                        TransactionType.INCOME -> "Destination Account"
+                        TransactionType.TRANSFER -> "From Account"
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { showSourceDropdown = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
                     ) {
-                        categories.forEach { cat ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(srcAccount?.let { "${it.bank} - ${it.name}" } ?: "Select Account", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown")
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = showSourceDropdown,
+                        onDismissRequest = { showSourceDropdown = false },
+                        modifier = Modifier.fillMaxWidth(0.8f)
+                    ) {
+                        accounts.forEach { account ->
                             DropdownMenuItem(
-                                text = { Text(cat) },
+                                text = { Text("${account.bank} - ${account.name}") },
                                 onClick = {
-                                    selectedCategory = cat
-                                    categoryDropdownExpanded = false
+                                    selectedSourceId = account.id
+                                    showSourceDropdown = false
                                 }
                             )
                         }
                     }
                 }
 
-                val sdf = remember { SimpleDateFormat("MMM d, yyyy", Locale.US) }
-                OutlinedTextField(
-                    value = sdf.format(Date(selectedDateMillis)),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Transaction Date") },
-                    trailingIcon = {
-                        IconButton(onClick = { showDatePicker = true }) {
-                            Icon(
-                                imageVector = Icons.Outlined.Event,
-                                contentDescription = "Choose Date"
-                            )
+                if (selectedType == TransactionType.TRANSFER) {
+                    val destAccount = accounts.find { it.id == selectedDestId } ?: accounts.firstOrNull { it.id != selectedSourceId }
+                    selectedDestId = destAccount?.id ?: ""
+
+                    Text(
+                        text = "To Account",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { showDestDropdown = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(destAccount?.let { "${it.bank} - ${it.name}" } ?: "Select Account", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown")
+                            }
                         }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showDatePicker = true }
+                        DropdownMenu(
+                            expanded = showDestDropdown,
+                            onDismissRequest = { showDestDropdown = false },
+                            modifier = Modifier.fillMaxWidth(0.8f)
+                        ) {
+                            accounts.filter { it.id != selectedSourceId }.forEach { account ->
+                                DropdownMenuItem(
+                                    text = { Text("${account.bank} - ${account.name}") },
+                                    onClick = {
+                                        selectedDestId = account.id
+                                        showDestDropdown = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("Amount (BDT)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
+
+                if (selectedType != TransactionType.TRANSFER) {
+                    Text(
+                        text = "Category",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { showCatDropdown = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(category)
+                                Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown")
+                            }
+                        }
+                        DropdownMenu(
+                            expanded = showCatDropdown,
+                            onDismissRequest = { showCatDropdown = false },
+                            modifier = Modifier.fillMaxWidth(0.8f)
+                        ) {
+                            categories.forEach { cat ->
+                                DropdownMenuItem(
+                                    text = { Text(cat) },
+                                    onClick = {
+                                        category = cat
+                                        showCatDropdown = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
 
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Description") },
+                    label = { Text("Description / Vendor") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                val amtVal = amount.toDoubleOrNull() ?: 0.0
-                val rateVal = exchangeRate.toDoubleOrNull() ?: 1.0
-                val activeCard = selectedCard
-
-                if (activeCard == null) {
-                    errorText = "Please select a credit card."
-                } else if (amtVal <= 0.0) {
-                    errorText = "Please enter an expense amount greater than 0."
-                } else if (currency == "USD" && rateVal <= 0.0) {
-                    errorText = "Please enter a valid exchange rate."
-                } else if (description.isBlank()) {
-                    errorText = "Please write a brief description."
-                } else {
-                    val finalRate = if (currency == "BDT") 1.0 else rateVal
-                    onConfirm(
-                        activeCard.id, amtVal, selectedCategory, description,
-                        selectedDateMillis, currency, finalRate
-                    )
+            TextButton(
+                onClick = {
+                    val amount = amountText.toDoubleOrNull() ?: 0.0
+                    if (amount <= 0.0) {
+                        Toast.makeText(context, "Please enter a valid amount.", Toast.LENGTH_SHORT).show()
+                    } else if (selectedSourceId.isEmpty()) {
+                        Toast.makeText(context, "Please select an account.", Toast.LENGTH_SHORT).show()
+                    } else if (selectedType == TransactionType.TRANSFER && selectedDestId.isEmpty()) {
+                        Toast.makeText(context, "Please select a destination account.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        onConfirm(
+                            selectedType,
+                            selectedSourceId,
+                            if (selectedType == TransactionType.TRANSFER) selectedDestId else null,
+                            amount,
+                            if (selectedType == TransactionType.TRANSFER) "Transfer" else category,
+                            description.trim(),
+                            System.currentTimeMillis()
+                        )
+                    }
                 }
-            }) {
-                Text("Log", fontWeight = FontWeight.Bold)
+            ) {
+                Text("Confirm", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -639,28 +768,4 @@ fun AddExpenseDialog(
             }
         }
     )
-
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDateMillis)
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        selectedDateMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
-                        showDatePicker = false
-                    }
-                ) {
-                    Text("OK")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
 }
