@@ -5,6 +5,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
@@ -332,17 +333,17 @@ fun AccountWidget(
         
         Card(
             modifier = Modifier
-                .width(300.dp)
-                .height(180.dp)
+                .width(280.dp)
+                .height(160.dp)
                 .clickable { onClick() }
                 .then(
-                    if (isSelected) Modifier.vaultGlow(Color.White, alpha = 0.15f, borderRadius = 20.dp)
+                    if (isSelected) Modifier.border(width = 2.dp, color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(16.dp))
                     else Modifier
                 )
-                .vaultGlass(borderRadius = 20.dp),
+                .vaultGlass(borderRadius = 16.dp),
             colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
-            Box(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+            Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                 Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -354,12 +355,12 @@ fun AccountWidget(
                                 text = account.bank,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = account.name,
                                 style = MaterialTheme.typography.labelMedium,
-                                color = Color.White.copy(alpha = 0.6f)
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                         }
                         
@@ -372,7 +373,7 @@ fun AccountWidget(
                         Icon(
                             imageVector = icon,
                             contentDescription = account.accountType.name,
-                            tint = Color.White.copy(alpha = 0.8f),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -381,13 +382,13 @@ fun AccountWidget(
                         Text(
                             text = "Available Balance",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.6f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
                         Text(
                             text = formattedBalance,
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }

@@ -91,25 +91,25 @@ fun animatedVaultGradient(): Brush {
 @Composable
 fun Modifier.vaultGlass(
     borderRadius: Dp = 24.dp,
-    glowColor: Color = if (isSystemInDarkTheme()) VaultUiTokens.AbyssNeonCyan else VaultUiTokens.VaultTeal
+    glowColor: Color = Color.Transparent
 ): Modifier {
     val isDark = isSystemInDarkTheme()
+    val surfaceColor = if (isDark) {
+        Color(0xFF131B2E) // Deep elegant dark container surface
+    } else {
+        Color(0xFFF1F3F9) // Clean off-white container surface
+    }
     
-    // Choose dynamic glass tint based on Theme
-    val glassColor = if (isDark) VaultUiTokens.GlassCharcoalNight else VaultUiTokens.GlassWhiteDay
-    val borderBrush = Brush.linearGradient(
-        colors = listOf(
-            Color.White.copy(alpha = if (isDark) 0.12f else 0.45f),
-            Color.White.copy(alpha = 0.02f),
-            glowColor.copy(alpha = if (isDark) 0.25f else 0.12f)
-        )
-    )
+    val borderColor = if (isDark) {
+        Color.White.copy(alpha = 0.06f)
+    } else {
+        Color.Black.copy(alpha = 0.05f)
+    }
 
     return this
-        .vaultGlow(color = glowColor, borderRadius = borderRadius)
-        .border(width = 1.dp, brush = borderBrush, shape = RoundedCornerShape(borderRadius))
+        .border(width = 1.dp, color = borderColor, shape = RoundedCornerShape(borderRadius))
         .clip(RoundedCornerShape(borderRadius))
-        .background(glassColor)
+        .background(surfaceColor)
 }
 
 /**

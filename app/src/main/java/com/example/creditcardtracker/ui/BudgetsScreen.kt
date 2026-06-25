@@ -59,7 +59,7 @@ fun BudgetsScreen(
             .fillMaxSize()
             .padding(16.dp)
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Budgets Section
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -95,7 +95,18 @@ fun BudgetsScreen(
                         .vaultGlass(borderRadius = 16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                 ) {
-                    Box(modifier = Modifier.padding(24.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Column(
+                        modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AccountBalanceWallet,
+                            contentDescription = "No Budgets",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "No budgets configured. Tap + to set one.",
                             style = MaterialTheme.typography.bodyMedium,
@@ -151,7 +162,18 @@ fun BudgetsScreen(
                         .vaultGlass(borderRadius = 16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                 ) {
-                    Box(modifier = Modifier.padding(24.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Column(
+                        modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Redeem,
+                            contentDescription = "No Goals",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "No savings goals logged. Tap + to add one.",
                             style = MaterialTheme.typography.bodyMedium,

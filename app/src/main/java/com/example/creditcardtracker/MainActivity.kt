@@ -164,7 +164,7 @@ class MainActivity : FragmentActivity() {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .background(animatedVaultGradient())
+                                        .background(MaterialTheme.colorScheme.background)
                                         .padding(innerPadding)
                                 ) {
                                     AnimatedContent(

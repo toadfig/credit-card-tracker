@@ -467,16 +467,11 @@ fun CreditCardDesign(
 
     Card(
         modifier = modifier
-            .width(300.dp)
-            .height(180.dp)
-            .vaultGlow(
-                color = if (isSelected) Color.Black else Color.Transparent,
-                alpha = 0.15f,
-                borderRadius = 24.dp
-            )
+            .width(280.dp)
+            .height(160.dp)
             .let { if (onClick != null) it.clickable { onClick() } else it },
-        shape = RoundedCornerShape(18.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 6.dp else 1.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 4.dp else 1.dp)
     ) {
         Box(
             modifier = Modifier
