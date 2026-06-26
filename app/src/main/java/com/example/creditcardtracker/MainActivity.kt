@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Settings
@@ -45,10 +46,10 @@ import com.example.creditcardtracker.ui.*
 
 enum class AppTab(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     Overview("Home", Icons.Default.Home),
-    Expenses("Ledger", Icons.AutoMirrored.Filled.List),
+    Transactions("Transactions", Icons.AutoMirrored.Filled.List),
+    Analytics("Analytics", Icons.Outlined.Analytics),
     Budgets("Budgets", Icons.Default.PieChart),
-    Portfolio("Portfolio", Icons.Outlined.Analytics),
-    Tax("Tax", Icons.Outlined.CalendarToday)
+    Goals("Goals", Icons.Default.Star)
 }
 
 enum class OverlayScreen {
@@ -56,8 +57,7 @@ enum class OverlayScreen {
     ManageCards,
     Settings,
     Subscriptions,
-    Payments,
-    CreditCommand
+    Payments
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -125,10 +125,10 @@ class MainActivity : FragmentActivity() {
                                             Text(
                                                 text = when (currentTab) {
                                                     AppTab.Overview -> "Money Manager"
-                                                    AppTab.Expenses -> "Transactions Ledger"
-                                                    AppTab.Budgets -> "Budgets & Savings"
-                                                    AppTab.Portfolio -> "Investment Portfolio"
-                                                    AppTab.Tax -> "Tax Planning"
+                                                    AppTab.Transactions -> "Transactions Ledger"
+                                                    AppTab.Analytics -> "Cashflow Analytics"
+                                                    AppTab.Budgets -> "Category Budgets"
+                                                    AppTab.Goals -> "Financial Goals"
                                                 },
                                                 fontWeight = FontWeight.Bold,
                                                 style = MaterialTheme.typography.titleMedium
@@ -199,13 +199,12 @@ class MainActivity : FragmentActivity() {
                                                 viewModel = viewModel,
                                                 onManageCardsClick = { overlayScreen = OverlayScreen.ManageCards },
                                                 onSubscriptionsClick = { overlayScreen = OverlayScreen.Subscriptions },
-                                                onPaymentsClick = { overlayScreen = OverlayScreen.Payments },
-                                                onCreditCommandClick = { overlayScreen = OverlayScreen.CreditCommand }
+                                                onPaymentsClick = { overlayScreen = OverlayScreen.Payments }
                                             )
-                                            AppTab.Expenses -> ExpensesScreen(viewModel = viewModel)
+                                            AppTab.Transactions -> TransactionsScreen(viewModel = viewModel)
+                                            AppTab.Analytics -> AnalyticsScreen(viewModel = viewModel)
                                             AppTab.Budgets -> BudgetsScreen(viewModel = viewModel)
-                                            AppTab.Portfolio -> InvestmentsScreen(viewModel = viewModel)
-                                            AppTab.Tax -> TaxScreen(viewModel = viewModel)
+                                            AppTab.Goals -> GoalsScreen(viewModel = viewModel)
                                         }
                                     }
                                 }
@@ -267,12 +266,6 @@ class MainActivity : FragmentActivity() {
                                                 modifier = Modifier.padding(paddingValues)
                                             )
                                         }
-                                    }
-                                    OverlayScreen.CreditCommand -> {
-                                        CreditCommandCenter(
-                                            viewModel = viewModel,
-                                            onBackClick = { overlayScreen = OverlayScreen.None }
-                                        )
                                     }
                                     else -> {}
                                 }

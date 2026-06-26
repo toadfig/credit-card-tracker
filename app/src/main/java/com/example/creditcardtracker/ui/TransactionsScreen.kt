@@ -1,11 +1,8 @@
 package com.example.creditcardtracker.ui
 
 import android.widget.Toast
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,8 +18,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -41,13 +36,15 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExpensesScreen(
+fun TransactionsScreen(
     viewModel: TrackerViewModel,
     modifier: Modifier = Modifier
 ) {
     val transactions = viewModel.transactions
     val accounts = viewModel.accounts
+    val context = LocalContext.current
     
     var showAddDialog by remember { mutableStateOf(false) }
     var addDialogType by remember { mutableStateOf(TransactionType.EXPENSE) }
@@ -56,16 +53,18 @@ fun ExpensesScreen(
     var selectedTypeFilter by remember { mutableStateOf<TransactionType?>(null) }
     var selectedAccountFilterId by remember { mutableStateOf<String?>(null) }
     var selectedCategoryFilter by remember { mutableStateOf<String?>(null) }
-    var showAnalytics by remember { mutableStateOf(true) }
 
-    val inLocale = Locale("en", "IN")
-    val bdtFormatter = remember { 
-        val formatter = NumberFormat.getCurrencyInstance(inLocale)
-        formatter.currency = Currency.getInstance("BDT")
-        formatter
-    }
-    fun formatBdt(amount: Double): String {
-        return bdtFormatter.format(amount)
+    val filteredTransactions = remember(transactions, searchQuery, selectedTypeFilter, selectedAccountFilterId, selectedCategoryFilter) {
+        transactions.filter { tx ->
+            val matchesQuery = tx.description.contains(searchQuery, ignoreCase = true) || 
+                               tx.category.contains(searchQuery, ignoreCase = true)
+            val matchesType = selectedTypeFilter == null || tx.type == selectedTypeFilter
+            val matchesAccount = selectedAccountFilterId == null || 
+                                 tx.sourceAccountId == selectedAccountFilterId || 
+                                 tx.destinationAccountId == selectedAccountFilterId
+            val matchesCategory = selectedCategoryFilter == null || tx.category == selectedCategoryFilter
+            matchesQuery && matchesType && matchesAccount && matchesCategory
+        }.sortedByDescending { it.date }
     }
 
     Box(
@@ -77,27 +76,12 @@ fun ExpensesScreen(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Transactions Ledger",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                
-                if (transactions.isNotEmpty()) {
-                    TextButton(onClick = { showAnalytics = !showAnalytics }) {
-                        Text(
-                            text = if (showAnalytics) "Hide Charts" else "Show Charts",
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
-                }
-            }
+            Text(
+                text = "Transactions Ledger",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
 
             // Search Bar
             OutlinedTextField(
@@ -107,7 +91,11 @@ fun ExpensesScreen(
                 leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = "Search") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                )
             )
 
             // Filtering Row (Expense / Income / Transfer)
@@ -137,7 +125,7 @@ fun ExpensesScreen(
                 )
             }
 
-            // Filter status indicator
+            // Filter status indicators
             if (selectedCategoryFilter != null || selectedAccountFilterId != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -148,69 +136,55 @@ fun ExpensesScreen(
                         InputChip(
                             selected = true,
                             onClick = { selectedCategoryFilter = null },
-                            label = { Text("Category: $cat") },
-                            trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
+                            label = { Text(cat) },
+                            trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = "Remove") }
                         )
                     }
                     selectedAccountFilterId?.let { accId ->
-                        val acc = accounts.find { it.id == accId }
+                        val accName = accounts.find { it.id == accId }?.name ?: "Account"
                         InputChip(
                             selected = true,
                             onClick = { selectedAccountFilterId = null },
-                            label = { Text("Account: ${acc?.name ?: "Unknown"}") },
-                            trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
+                            label = { Text(accName) },
+                            trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = "Remove") }
                         )
                     }
                 }
             }
 
-            // Spending Analytics Card
-            val expensesOnly = remember(transactions) {
-                transactions.filter { it.type == TransactionType.EXPENSE }
-            }
-            if (showAnalytics && expensesOnly.isNotEmpty() && (selectedTypeFilter == null || selectedTypeFilter == TransactionType.EXPENSE)) {
-                SpendingAnalyticsCard(
-                    expenses = expensesOnly,
-                    selectedCategory = selectedCategoryFilter,
-                    onCategoryClick = { selectedCategoryFilter = it }
-                )
-            }
-
-            // Ledger List
-            val filteredTransactions = remember(transactions, searchQuery, selectedTypeFilter, selectedAccountFilterId, selectedCategoryFilter) {
-                var list = transactions.toList()
-                if (searchQuery.isNotBlank()) {
-                    list = list.filter { it.description.contains(searchQuery, ignoreCase = true) || it.category.contains(searchQuery, ignoreCase = true) }
-                }
-                if (selectedTypeFilter != null) {
-                    list = list.filter { it.type == selectedTypeFilter }
-                }
-                if (selectedCategoryFilter != null) {
-                    list = list.filter { it.category == selectedCategoryFilter }
-                }
-                if (selectedAccountFilterId != null) {
-                    list = list.filter { it.sourceAccountId == selectedAccountFilterId || it.destinationAccountId == selectedAccountFilterId }
-                }
-                list.sortedByDescending { it.date }
-            }
-
+            // Transactions List
             if (filteredTransactions.isEmpty()) {
                 Box(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "No matching records found.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ReceiptLong,
+                            contentDescription = "Empty",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            text = "No transactions found",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(items = filteredTransactions, key = { it.id }) { tx ->
+                    items(filteredTransactions, key = { it.id }) { tx ->
                         val srcAcc = accounts.find { it.id == tx.sourceAccountId }
                         val destAcc = accounts.find { it.id == tx.destinationAccountId }
                         TransactionItem(
@@ -225,192 +199,44 @@ fun ExpensesScreen(
             }
         }
 
-        if (accounts.isNotEmpty()) {
-            FloatingActionButton(
-                onClick = { 
-                    addDialogType = selectedTypeFilter ?: TransactionType.EXPENSE
-                    showAddDialog = true 
-                },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 8.dp)
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Transaction")
-            }
-        }
-
-        if (showAddDialog) {
-            AddTransactionDialog(
-                type = addDialogType,
-                accounts = accounts,
-                onDismiss = { showAddDialog = false },
-                onConfirm = { type, sourceId, destId, amount, category, desc, date ->
-                    viewModel.addTransaction(type, sourceId, destId, amount, category, desc, date)
-                    showAddDialog = false
+        // Floating Action Button to add transaction
+        FloatingActionButton(
+            onClick = {
+                if (accounts.isEmpty()) {
+                    Toast.makeText(context, "Please configure an account first.", Toast.LENGTH_SHORT).show()
+                } else {
+                    addDialogType = TransactionType.EXPENSE
+                    showAddDialog = true
                 }
-            )
+            },
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 16.dp, end = 16.dp)
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = "Add Transaction")
         }
     }
-}
 
-@Composable
-fun SpendingAnalyticsCard(
-    expenses: List<Transaction>,
-    selectedCategory: String?,
-    onCategoryClick: (String?) -> Unit
-) {
-    val categories = listOf("Food & Dining", "Groceries", "Transportation", "Shopping", "Utilities", "Others")
-    val categoryColors = listOf(
-        Color(0xFF4CD6FB), // Cyan
-        Color(0xFF7DFFA2), // Emerald
-        Color(0xFFFFBA27), // Gold
-        Color(0xFFFFB4AB), // Crimson
-        Color(0xFFC084FC), // Purple
-        Color(0xFF869398)  // Outline / Gray
-    )
-
-    // Calculate sum per category
-    val spendByCategory = categories.map { category ->
-        expenses.filter { it.category == category }.sumOf { it.amount * it.exchangeRate }
-    }
-    val totalSpend = spendByCategory.sum()
-
-    val inLocale = Locale("en", "IN")
-    val bdtFormatter = remember { 
-        val formatter = NumberFormat.getCurrencyInstance(inLocale)
-        formatter.currency = Currency.getInstance("BDT")
-        formatter
-    }
-    fun formatBdt(amount: Double): String {
-        return bdtFormatter.format(amount)
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .vaultGlass(borderRadius = 20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                text = "Monthly Spending Summary",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            if (totalSpend > 0) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Category Pie Chart
-                    Canvas(
-                        modifier = Modifier
-                            .size(110.dp)
-                            .pointerInput(expenses, totalSpend) {
-                                detectTapGestures { offset ->
-                                    val cx = size.width / 2f
-                                    val cy = size.height / 2f
-                                    val dx = offset.x - cx
-                                    val dy = offset.y - cy
-                                    val distance = Math.sqrt((dx * dx + dy * dy).toDouble())
-                                    val outerRadius = size.width / 2f
-                                    val innerRadius = outerRadius * 0.56f
-
-                                    if (distance in innerRadius..outerRadius) {
-                                        val angleDeg = Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble()))
-                                        val clockwiseAngle = (angleDeg + 90.0 + 360.0) % 360.0
-
-                                        var currentStart = 0.0
-                                        spendByCategory.forEachIndexed { index, amount ->
-                                            val sweep = (amount / totalSpend) * 360.0
-                                            if (sweep > 0.0) {
-                                                val currentEnd = currentStart + sweep
-                                                if (clockwiseAngle >= currentStart && clockwiseAngle < currentEnd) {
-                                                    val clickedCat = categories[index]
-                                                    onCategoryClick(if (selectedCategory == clickedCat) null else clickedCat)
-                                                }
-                                                currentStart = currentEnd
-                                            }
-                                        }
-                                    } else {
-                                        onCategoryClick(null)
-                                    }
-                                }
-                            }
-                    ) {
-                        var startAngle = -90f
-                        spendByCategory.forEachIndexed { idx, amount ->
-                            val sweepAngle = (amount / totalSpend).toFloat() * 360f
-                            if (sweepAngle > 0f) {
-                                val isSelected = categories[idx] == selectedCategory
-                                val color = categoryColors[idx]
-                                drawArc(
-                                    color = if (selectedCategory == null || isSelected) color else color.copy(alpha = 0.3f),
-                                    startAngle = startAngle,
-                                    sweepAngle = sweepAngle,
-                                    useCenter = true,
-                                    size = size
-                                )
-                                startAngle += sweepAngle
-                            }
-                        }
-
-                        // Draw hollow center for donut look
-                        drawCircle(
-                            color = Color(0xFF151922),
-                            radius = size.width * 0.28f,
-                            center = center
-                        )
-                    }
-
-                    // Legends Sidebar
-                    Column(
-                        modifier = Modifier.weight(1f).padding(start = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        categories.forEachIndexed { idx, category ->
-                            val amount = spendByCategory[idx]
-                            val percent = if (totalSpend > 0) ((amount / totalSpend) * 100).toInt() else 0
-                            if (amount > 0) {
-                                val isSelected = category == selectedCategory
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(if (isSelected) Color.White.copy(alpha = 0.1f) else Color.Transparent)
-                                        .clickable { onCategoryClick(if (isSelected) null else category) }
-                                        .padding(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .clip(RoundedCornerShape(2.dp))
-                                            .background(categoryColors[idx])
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "$category ($percent%)",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                Text("No data to display.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (showAddDialog) {
+        AddTransactionDialog(
+            type = addDialogType,
+            accounts = accounts,
+            onDismiss = { showAddDialog = false },
+            onConfirm = { type, srcId, destId, amt, cat, desc, date ->
+                viewModel.addTransaction(
+                    type = type,
+                    sourceAccountId = srcId,
+                    destinationAccountId = destId,
+                    amount = amt,
+                    category = cat,
+                    description = desc,
+                    date = date
+                )
+                showAddDialog = false
             }
-        }
+        )
     }
 }
 
@@ -432,9 +258,6 @@ fun TransactionItem(
         return bdtFormatter.format(amount)
     }
 
-    val isExpense = transaction.type == TransactionType.EXPENSE
-    val isIncome = transaction.type == TransactionType.INCOME
-    
     val displayAmount = when (transaction.type) {
         TransactionType.INCOME -> "+${formatBdt(transaction.amount)}"
         TransactionType.EXPENSE -> "-${formatBdt(transaction.amount)}"

@@ -63,7 +63,6 @@ fun OverviewScreen(
     onManageCardsClick: () -> Unit,
     onSubscriptionsClick: () -> Unit,
     onPaymentsClick: () -> Unit,
-    onCreditCommandClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val accounts = viewModel.accounts
@@ -277,34 +276,6 @@ fun OverviewScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Credit Score Bento Card
-                    Card(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(96.dp)
-                            .clickable { onCreditCommandClick() }
-                            .vaultGlass(borderRadius = 16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp).fillMaxSize(),
-                            verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Credit Score", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Icon(Icons.Outlined.Star, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
-                            }
-                            Column {
-                                Text("784", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                Text("Excellent (+12)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    }
-
                     // Bills & Subs Bento Card
                     val activeBillsCount = viewModel.subscriptions.size
                     Card(
