@@ -16,6 +16,10 @@ import com.example.creditcardtracker.data.LoungeVisit
 import com.example.creditcardtracker.data.EmiPlan
 import com.example.creditcardtracker.data.Budget
 import com.example.creditcardtracker.data.SavingsGoal
+import com.example.creditcardtracker.data.Holding
+import com.example.creditcardtracker.data.TaxDeduction
+import com.example.creditcardtracker.data.TaxDeadline
+import com.example.creditcardtracker.data.VaultDocument
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.Calendar
@@ -33,6 +37,10 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     val emiPlans = mutableStateListOf<EmiPlan>()
     val budgets = mutableStateListOf<Budget>()
     val savingsGoals = mutableStateListOf<SavingsGoal>()
+    val holdings = mutableStateListOf<Holding>()
+    val taxDeductions = mutableStateListOf<TaxDeduction>()
+    val taxDeadlines = mutableStateListOf<TaxDeadline>()
+    val vaultDocuments = mutableStateListOf<VaultDocument>()
 
     val isBiometricEnabled = mutableStateOf(sharedPrefs.getBoolean("biometric_enabled", false))
     val isDynamicColorEnabled = mutableStateOf(sharedPrefs.getBoolean("dynamic_color_enabled", true))
@@ -40,8 +48,176 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     val selectedIndex = mutableStateOf(0)
 
     init {
+        seedDefaultDataIfEmpty()
         syncState()
         checkAndProcessBudgetRollover()
+    }
+
+    private fun seedDefaultDataIfEmpty() {
+        var changed = false
+        if (dbHelper.accounts.isEmpty()) {
+            dbHelper.accounts.add(
+                Account(
+                    name = "Platinum Flexi Card",
+                    bank = "BRAC Bank",
+                    accountType = AccountType.CREDIT_CARD,
+                    balance = 12482.0,
+                    creditLimit = 200000.0,
+                    cardNumber = "4321098765432109",
+                    expiryDate = "12/28",
+                    cvv = "123",
+                    statementDay = 15,
+                    dueDay = 2,
+                    annualFee = 5000.0,
+                    isFeeRedeemable = true,
+                    feeRedemptionLimit = 150000.0,
+                    feeRedemptionUnit = "Spend",
+                    accountColorIndex = 0,
+                    isSmsTrackingEnabled = true,
+                    smsSender = "BRACBANK",
+                    cardType = "Visa",
+                    cardTier = "Platinum",
+                    annualLoungeQuota = 8,
+                    cashbackRate = 1.0,
+                    rewardPointsRate = 1.5,
+                    bankHelpline = "16221"
+                )
+            )
+            dbHelper.accounts.add(
+                Account(
+                    name = "Diners Club Card",
+                    bank = "BRAC Bank",
+                    accountType = AccountType.CREDIT_CARD,
+                    balance = 42500.0,
+                    creditLimit = 300000.0,
+                    cardNumber = "30123456789012",
+                    expiryDate = "08/29",
+                    cvv = "456",
+                    statementDay = 15,
+                    dueDay = 2,
+                    annualFee = 6000.0,
+                    isFeeRedeemable = true,
+                    feeRedemptionLimit = 200000.0,
+                    feeRedemptionUnit = "Spend",
+                    accountColorIndex = 1,
+                    isSmsTrackingEnabled = false,
+                    smsSender = "BRACBANK",
+                    cardType = "Diners",
+                    cardTier = "Signature",
+                    annualLoungeQuota = 10,
+                    cashbackRate = 1.5,
+                    rewardPointsRate = 2.0,
+                    bankHelpline = "16221"
+                )
+            )
+            dbHelper.accounts.add(
+                Account(
+                    name = "ShareTrip Mastercard",
+                    bank = "Eastern Bank Limited",
+                    accountType = AccountType.CREDIT_CARD,
+                    balance = 8240.0,
+                    creditLimit = 150000.0,
+                    cardNumber = "5432109876543210",
+                    expiryDate = "05/27",
+                    cvv = "789",
+                    statementDay = 10,
+                    dueDay = 25,
+                    annualFee = 3000.0,
+                    isFeeRedeemable = true,
+                    feeRedemptionLimit = 100000.0,
+                    feeRedemptionUnit = "Spend",
+                    accountColorIndex = 2,
+                    isSmsTrackingEnabled = true,
+                    smsSender = "EBL",
+                    cardType = "Mastercard",
+                    cardTier = "Titanium",
+                    annualLoungeQuota = 4,
+                    cashbackRate = 1.0,
+                    rewardPointsRate = 1.0,
+                    bankHelpline = "16230"
+                )
+            )
+            dbHelper.accounts.add(
+                Account(
+                    name = "Stellar Platinum Card",
+                    bank = "EBL",
+                    accountType = AccountType.CREDIT_CARD,
+                    balance = 75000.0,
+                    creditLimit = 400000.0,
+                    cardNumber = "4111222233334444",
+                    expiryDate = "10/30",
+                    cvv = "999",
+                    statementDay = 10,
+                    dueDay = 25,
+                    annualFee = 8000.0,
+                    isFeeRedeemable = true,
+                    feeRedemptionLimit = 300000.0,
+                    feeRedemptionUnit = "Spend",
+                    accountColorIndex = 3,
+                    isSmsTrackingEnabled = true,
+                    smsSender = "EBL",
+                    cardType = "Visa",
+                    cardTier = "Platinum",
+                    annualLoungeQuota = 12,
+                    cashbackRate = 1.5,
+                    rewardPointsRate = 2.0,
+                    bankHelpline = "16230"
+                )
+            )
+            changed = true
+        }
+
+        if (dbHelper.holdings.isEmpty()) {
+            dbHelper.holdings.add(Holding(ticker = "NVDA", name = "NVIDIA Corp", shares = 92.8, averageCost = 750.0, currentPrice = 922.40, dailyChangePercent = 12.4))
+            dbHelper.holdings.add(Holding(ticker = "BTC", name = "Bitcoin", shares = 0.33, averageCost = 58000.0, currentPrice = 64250.0, dailyChangePercent = 4.8))
+            dbHelper.holdings.add(Holding(ticker = "AAPL", name = "Apple Inc", shares = 122.0, averageCost = 180.0, currentPrice = 175.0, dailyChangePercent = -0.8))
+            dbHelper.holdings.add(Holding(ticker = "BND", name = "Vanguard Total Bond ETF", shares = 390.0, averageCost = 73.0, currentPrice = 72.50, dailyChangePercent = 0.1))
+            dbHelper.holdings.add(Holding(ticker = "USD", name = "Cash/USD Reserves", shares = 7130.0, averageCost = 1.0, currentPrice = 1.0, dailyChangePercent = 0.0))
+            changed = true
+        }
+
+        if (dbHelper.taxDeductions.isEmpty()) {
+            dbHelper.taxDeductions.add(TaxDeduction(category = "Charity", targetAmount = 3000.0, actualAmount = 2400.0))
+            dbHelper.taxDeductions.add(TaxDeduction(category = "Business", targetAmount = 10000.0, actualAmount = 8120.0))
+            dbHelper.taxDeductions.add(TaxDeduction(category = "Education", targetAmount = 2500.0, actualAmount = 500.0))
+            changed = true
+        }
+
+        if (dbHelper.taxDeadlines.isEmpty()) {
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.MONTH, Calendar.APRIL)
+            cal.set(Calendar.DAY_OF_MONTH, 15)
+            dbHelper.taxDeadlines.add(TaxDeadline(title = "Federal Tax Return", description = "Annual income tax filing", dueDate = cal.timeInMillis))
+            
+            val cal2 = Calendar.getInstance()
+            cal2.set(Calendar.MONTH, Calendar.JUNE)
+            cal2.set(Calendar.DAY_OF_MONTH, 15)
+            dbHelper.taxDeadlines.add(TaxDeadline(title = "Q2 Estimated Payment", description = "Second quarter tax installment", dueDate = cal2.timeInMillis))
+            changed = true
+        }
+
+        if (dbHelper.vaultDocuments.isEmpty()) {
+            dbHelper.vaultDocuments.add(VaultDocument(title = "W-2s", category = "Income", documentCount = 2))
+            dbHelper.vaultDocuments.add(VaultDocument(title = "1099s", category = "Freelance", documentCount = 5))
+            dbHelper.vaultDocuments.add(VaultDocument(title = "Recent Receipts", category = "Deductions", documentCount = 12))
+            changed = true
+        }
+
+        if (dbHelper.savingsGoals.isEmpty()) {
+            val cal3 = Calendar.getInstance().apply { add(Calendar.YEAR, 1) }
+            dbHelper.savingsGoals.add(SavingsGoal(name = "New Car", targetAmount = 35000.0, currentAmount = 18450.0, targetDate = cal3.timeInMillis))
+            
+            val cal4 = Calendar.getInstance().apply { add(Calendar.MONTH, 6) }
+            dbHelper.savingsGoals.add(SavingsGoal(name = "Emergency Fund", targetAmount = 15000.0, currentAmount = 12000.0, targetDate = cal4.timeInMillis))
+            
+            val cal5 = Calendar.getInstance().apply { add(Calendar.MONTH, 3) }
+            dbHelper.savingsGoals.add(SavingsGoal(name = "Vacation", targetAmount = 8000.0, currentAmount = 2800.0, targetDate = cal5.timeInMillis))
+            changed = true
+        }
+
+        if (changed) {
+            dbHelper.saveData()
+        }
     }
 
     private fun syncState() {
@@ -61,6 +237,92 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         budgets.addAll(dbHelper.budgets)
         savingsGoals.clear()
         savingsGoals.addAll(dbHelper.savingsGoals)
+        holdings.clear()
+        holdings.addAll(dbHelper.holdings)
+        taxDeductions.clear()
+        taxDeductions.addAll(dbHelper.taxDeductions)
+        taxDeadlines.clear()
+        taxDeadlines.addAll(dbHelper.taxDeadlines)
+        vaultDocuments.clear()
+        vaultDocuments.addAll(dbHelper.vaultDocuments)
+    }
+
+    fun addHolding(ticker: String, name: String, shares: Double, averageCost: Double, currentPrice: Double, dailyChangePercent: Double = 0.0) {
+        dbHelper.holdings.add(Holding(ticker = ticker, name = name, shares = shares, averageCost = averageCost, currentPrice = currentPrice, dailyChangePercent = dailyChangePercent))
+        dbHelper.saveData()
+        syncState()
+    }
+
+    fun deleteHolding(id: String) {
+        dbHelper.holdings.removeAll { it.id == id }
+        dbHelper.saveData()
+        syncState()
+    }
+
+    fun updateHoldingPrice(id: String, currentPrice: Double, dailyChangePercent: Double) {
+        val index = dbHelper.holdings.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val old = dbHelper.holdings[index]
+            dbHelper.holdings[index] = old.copy(currentPrice = currentPrice, dailyChangePercent = dailyChangePercent)
+            dbHelper.saveData()
+            syncState()
+        }
+    }
+
+    fun addTaxDeduction(category: String, targetAmount: Double, actualAmount: Double) {
+        dbHelper.taxDeductions.add(TaxDeduction(category = category, targetAmount = targetAmount, actualAmount = actualAmount))
+        dbHelper.saveData()
+        syncState()
+    }
+
+    fun updateTaxDeduction(id: String, actualAmount: Double) {
+        val index = dbHelper.taxDeductions.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val old = dbHelper.taxDeductions[index]
+            dbHelper.taxDeductions[index] = old.copy(actualAmount = actualAmount)
+            dbHelper.saveData()
+            syncState()
+        }
+    }
+
+    fun deleteTaxDeduction(id: String) {
+        dbHelper.taxDeductions.removeAll { it.id == id }
+        dbHelper.saveData()
+        syncState()
+    }
+
+    fun addTaxDeadline(title: String, description: String, dueDate: Long) {
+        dbHelper.taxDeadlines.add(TaxDeadline(title = title, description = description, dueDate = dueDate))
+        dbHelper.saveData()
+        syncState()
+    }
+
+    fun deleteTaxDeadline(id: String) {
+        dbHelper.taxDeadlines.removeAll { it.id == id }
+        dbHelper.saveData()
+        syncState()
+    }
+
+    fun addVaultDocument(title: String, category: String, documentCount: Int) {
+        dbHelper.vaultDocuments.add(VaultDocument(title = title, category = category, documentCount = documentCount))
+        dbHelper.saveData()
+        syncState()
+    }
+
+    fun updateVaultDocumentCount(id: String, count: Int) {
+        val index = dbHelper.vaultDocuments.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val old = dbHelper.vaultDocuments[index]
+            dbHelper.vaultDocuments[index] = old.copy(documentCount = count)
+            dbHelper.saveData()
+            syncState()
+        }
+    }
+
+    fun deleteVaultDocument(id: String) {
+        dbHelper.vaultDocuments.removeAll { it.id == id }
+        dbHelper.saveData()
+        syncState()
     }
 
     fun setBiometricEnabled(enabled: Boolean) {

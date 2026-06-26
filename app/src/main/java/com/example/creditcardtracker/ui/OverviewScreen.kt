@@ -59,6 +59,8 @@ import java.util.*
 fun OverviewScreen(
     viewModel: TrackerViewModel,
     onManageCardsClick: () -> Unit,
+    onSubscriptionsClick: () -> Unit,
+    onPaymentsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val accounts = viewModel.accounts
@@ -262,6 +264,35 @@ fun OverviewScreen(
                         Icon(Icons.Outlined.SwapHoriz, contentDescription = "Transfer")
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Transfer", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onSubscriptionsClick,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(vertical = 12.dp)
+                    ) {
+                        Icon(Icons.Outlined.Autorenew, contentDescription = "Bills")
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Bills & Subs", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = onPaymentsClick,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(vertical = 12.dp)
+                    ) {
+                        Icon(Icons.Outlined.Payments, contentDescription = "Payments")
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Payments Log", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                     }
                 }
 

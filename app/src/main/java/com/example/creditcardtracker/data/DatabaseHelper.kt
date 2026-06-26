@@ -29,6 +29,14 @@ class DatabaseHelper(private val context: Context) {
         private set
     var savingsGoals: MutableList<SavingsGoal> = mutableListOf()
         private set
+    var holdings: MutableList<Holding> = mutableListOf()
+        private set
+    var taxDeductions: MutableList<TaxDeduction> = mutableListOf()
+        private set
+    var taxDeadlines: MutableList<TaxDeadline> = mutableListOf()
+        private set
+    var vaultDocuments: MutableList<VaultDocument> = mutableListOf()
+        private set
 
     init {
         loadData()
@@ -44,6 +52,10 @@ class DatabaseHelper(private val context: Context) {
             emiPlans = mutableListOf()
             budgets = mutableListOf()
             savingsGoals = mutableListOf()
+            holdings = mutableListOf()
+            taxDeductions = mutableListOf()
+            taxDeadlines = mutableListOf()
+            vaultDocuments = mutableListOf()
             return
         }
         try {
@@ -116,6 +128,10 @@ class DatabaseHelper(private val context: Context) {
             emiPlans = (data.emiPlans ?: emptyList()).toMutableList()
             budgets = (data.budgets ?: emptyList()).toMutableList()
             savingsGoals = (data.savingsGoals ?: emptyList()).toMutableList()
+            holdings = (data.holdings ?: emptyList()).toMutableList()
+            taxDeductions = (data.taxDeductions ?: emptyList()).toMutableList()
+            taxDeadlines = (data.taxDeadlines ?: emptyList()).toMutableList()
+            vaultDocuments = (data.vaultDocuments ?: emptyList()).toMutableList()
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Failed to load database: ${e.message}")
             accounts = mutableListOf()
@@ -126,6 +142,10 @@ class DatabaseHelper(private val context: Context) {
             emiPlans = mutableListOf()
             budgets = mutableListOf()
             savingsGoals = mutableListOf()
+            holdings = mutableListOf()
+            taxDeductions = mutableListOf()
+            taxDeadlines = mutableListOf()
+            vaultDocuments = mutableListOf()
         }
     }
 
@@ -141,7 +161,11 @@ class DatabaseHelper(private val context: Context) {
                 loungeVisits = loungeVisits,
                 emiPlans = emiPlans,
                 budgets = budgets,
-                savingsGoals = savingsGoals
+                savingsGoals = savingsGoals,
+                holdings = holdings,
+                taxDeductions = taxDeductions,
+                taxDeadlines = taxDeadlines,
+                vaultDocuments = vaultDocuments
             )
             val jsonString = gson.toJson(data)
             val rawBytes = jsonString.toByteArray(Charsets.UTF_8)
@@ -164,7 +188,11 @@ class DatabaseHelper(private val context: Context) {
                 loungeVisits = loungeVisits,
                 emiPlans = emiPlans,
                 budgets = budgets,
-                savingsGoals = savingsGoals
+                savingsGoals = savingsGoals,
+                holdings = holdings,
+                taxDeductions = taxDeductions,
+                taxDeadlines = taxDeadlines,
+                vaultDocuments = vaultDocuments
             )
             val jsonString = gson.toJson(data)
             val rawBytes = jsonString.toByteArray(Charsets.UTF_8)
@@ -248,6 +276,10 @@ class DatabaseHelper(private val context: Context) {
             emiPlans = (data.emiPlans ?: emptyList()).toMutableList()
             budgets = (data.budgets ?: emptyList()).toMutableList()
             savingsGoals = (data.savingsGoals ?: emptyList()).toMutableList()
+            holdings = (data.holdings ?: emptyList()).toMutableList()
+            taxDeductions = (data.taxDeductions ?: emptyList()).toMutableList()
+            taxDeadlines = (data.taxDeadlines ?: emptyList()).toMutableList()
+            vaultDocuments = (data.vaultDocuments ?: emptyList()).toMutableList()
             saveData()
             true
         } catch (e: Exception) {

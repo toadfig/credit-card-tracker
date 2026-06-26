@@ -93,18 +93,8 @@ fun Modifier.vaultGlass(
     borderRadius: Dp = 24.dp,
     glowColor: Color = Color.Transparent
 ): Modifier {
-    val isDark = isSystemInDarkTheme()
-    val surfaceColor = if (isDark) {
-        Color(0xFF131B2E) // Deep elegant dark container surface
-    } else {
-        Color(0xFFF1F3F9) // Clean off-white container surface
-    }
-    
-    val borderColor = if (isDark) {
-        Color.White.copy(alpha = 0.06f)
-    } else {
-        Color.Black.copy(alpha = 0.05f)
-    }
+    val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
+    val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
 
     return this
         .border(width = 1.dp, color = borderColor, shape = RoundedCornerShape(borderRadius))

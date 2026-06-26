@@ -157,5 +157,40 @@ data class AppBackupData(
     val loungeVisits: List<LoungeVisit>? = emptyList(),
     val emiPlans: List<EmiPlan>? = emptyList(),
     val budgets: List<Budget>? = emptyList(),
-    val savingsGoals: List<SavingsGoal>? = emptyList()
+    val savingsGoals: List<SavingsGoal>? = emptyList(),
+    val holdings: List<Holding>? = emptyList(),
+    val taxDeductions: List<TaxDeduction>? = emptyList(),
+    val taxDeadlines: List<TaxDeadline>? = emptyList(),
+    val vaultDocuments: List<VaultDocument>? = emptyList()
+)
+
+data class Holding(
+    val id: String = UUID.randomUUID().toString(),
+    val ticker: String,
+    val name: String,
+    val shares: Double,
+    val averageCost: Double,
+    val currentPrice: Double,
+    val dailyChangePercent: Double = 0.0
+)
+
+data class TaxDeduction(
+    val id: String = UUID.randomUUID().toString(),
+    val category: String,
+    val targetAmount: Double,
+    val actualAmount: Double
+)
+
+data class TaxDeadline(
+    val id: String = UUID.randomUUID().toString(),
+    val title: String,
+    val description: String,
+    val dueDate: Long
+)
+
+data class VaultDocument(
+    val id: String = UUID.randomUUID().toString(),
+    val title: String,
+    val category: String,
+    val documentCount: Int
 )

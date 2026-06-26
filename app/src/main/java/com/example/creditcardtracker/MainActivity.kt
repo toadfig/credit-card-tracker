@@ -20,6 +20,9 @@ import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,14 +47,16 @@ enum class AppTab(val label: String, val icon: androidx.compose.ui.graphics.vect
     Overview("Home", Icons.Default.Home),
     Expenses("Ledger", Icons.AutoMirrored.Filled.List),
     Budgets("Budgets", Icons.Default.PieChart),
-    Subscriptions("Bills", Icons.Default.Autorenew),
-    Payments("Pay", Icons.Default.Payments)
+    Portfolio("Portfolio", Icons.Outlined.Analytics),
+    Tax("Tax", Icons.Outlined.CalendarToday)
 }
 
 enum class OverlayScreen {
     None,
     ManageCards,
-    Settings
+    Settings,
+    Subscriptions,
+    Payments
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -118,11 +123,11 @@ class MainActivity : FragmentActivity() {
                                         title = {
                                             Text(
                                                 text = when (currentTab) {
-                                                    AppTab.Overview -> "Secure Dashboard"
+                                                    AppTab.Overview -> "Money Manager"
                                                     AppTab.Expenses -> "Transactions Ledger"
                                                     AppTab.Budgets -> "Budgets & Savings"
-                                                    AppTab.Subscriptions -> "Recurring & Bills"
-                                                    AppTab.Payments -> "Card Payments Log"
+                                                    AppTab.Portfolio -> "Investment Portfolio"
+                                                    AppTab.Tax -> "Tax Planning"
                                                 },
                                                 fontWeight = FontWeight.Bold,
                                                 style = MaterialTheme.typography.titleMedium
@@ -191,12 +196,14 @@ class MainActivity : FragmentActivity() {
                                         when (targetTab) {
                                             AppTab.Overview -> OverviewScreen(
                                                 viewModel = viewModel,
-                                                onManageCardsClick = { overlayScreen = OverlayScreen.ManageCards }
+                                                onManageCardsClick = { overlayScreen = OverlayScreen.ManageCards },
+                                                onSubscriptionsClick = { overlayScreen = OverlayScreen.Subscriptions },
+                                                onPaymentsClick = { overlayScreen = OverlayScreen.Payments }
                                             )
                                             AppTab.Expenses -> ExpensesScreen(viewModel = viewModel)
                                             AppTab.Budgets -> BudgetsScreen(viewModel = viewModel)
-                                            AppTab.Subscriptions -> SubscriptionsScreen(viewModel = viewModel)
-                                            AppTab.Payments -> PaymentsScreen(viewModel = viewModel)
+                                            AppTab.Portfolio -> InvestmentsScreen(viewModel = viewModel)
+                                            AppTab.Tax -> TaxScreen(viewModel = viewModel)
                                         }
                                     }
                                 }
@@ -220,6 +227,44 @@ class MainActivity : FragmentActivity() {
                                             viewModel = viewModel,
                                             onBackClick = { overlayScreen = OverlayScreen.None }
                                         )
+                                    }
+                                    OverlayScreen.Subscriptions -> {
+                                        Scaffold(
+                                            topBar = {
+                                                CenterAlignedTopAppBar(
+                                                    title = { Text("Subscriptions & Bills", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) },
+                                                    navigationIcon = {
+                                                        IconButton(onClick = { overlayScreen = OverlayScreen.None }) {
+                                                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        ) { paddingValues ->
+                                            SubscriptionsScreen(
+                                                viewModel = viewModel,
+                                                modifier = Modifier.padding(paddingValues)
+                                            )
+                                        }
+                                    }
+                                    OverlayScreen.Payments -> {
+                                        Scaffold(
+                                            topBar = {
+                                                CenterAlignedTopAppBar(
+                                                    title = { Text("Payments Log", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) },
+                                                    navigationIcon = {
+                                                        IconButton(onClick = { overlayScreen = OverlayScreen.None }) {
+                                                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        ) { paddingValues ->
+                                            PaymentsScreen(
+                                                viewModel = viewModel,
+                                                modifier = Modifier.padding(paddingValues)
+                                            )
+                                        }
                                     }
                                     else -> {}
                                 }
