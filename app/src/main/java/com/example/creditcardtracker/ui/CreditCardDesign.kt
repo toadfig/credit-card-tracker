@@ -455,7 +455,9 @@ fun CreditCardDesign(
 ) {
     val brush = CardDesignHelper.getTierBrush(cardTier)
     val textColor = CardDesignHelper.getTierTextColor(cardTier)
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale.US)
+    fun formatBdt(amount: Double): String {
+        return "৳ " + com.example.creditcardtracker.theme.formatBdtValue(amount)
+    }
     
     var isRevealed by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
@@ -625,7 +627,7 @@ fun CreditCardDesign(
                                     fontWeight = FontWeight.Light
                                 )
                                 Text(
-                                    text = currencyFormat.format(activeSpend),
+                                    text = formatBdt(activeSpend),
                                     color = textColor,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp

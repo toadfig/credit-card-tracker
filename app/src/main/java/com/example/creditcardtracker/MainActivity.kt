@@ -56,7 +56,8 @@ enum class OverlayScreen {
     ManageCards,
     Settings,
     Subscriptions,
-    Payments
+    Payments,
+    CreditCommand
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -198,7 +199,8 @@ class MainActivity : FragmentActivity() {
                                                 viewModel = viewModel,
                                                 onManageCardsClick = { overlayScreen = OverlayScreen.ManageCards },
                                                 onSubscriptionsClick = { overlayScreen = OverlayScreen.Subscriptions },
-                                                onPaymentsClick = { overlayScreen = OverlayScreen.Payments }
+                                                onPaymentsClick = { overlayScreen = OverlayScreen.Payments },
+                                                onCreditCommandClick = { overlayScreen = OverlayScreen.CreditCommand }
                                             )
                                             AppTab.Expenses -> ExpensesScreen(viewModel = viewModel)
                                             AppTab.Budgets -> BudgetsScreen(viewModel = viewModel)
@@ -265,6 +267,12 @@ class MainActivity : FragmentActivity() {
                                                 modifier = Modifier.padding(paddingValues)
                                             )
                                         }
+                                    }
+                                    OverlayScreen.CreditCommand -> {
+                                        CreditCommandCenter(
+                                            viewModel = viewModel,
+                                            onBackClick = { overlayScreen = OverlayScreen.None }
+                                        )
                                     }
                                     else -> {}
                                 }

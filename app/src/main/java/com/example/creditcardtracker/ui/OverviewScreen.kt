@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -50,6 +51,7 @@ import com.example.creditcardtracker.data.EmiPlan
 import com.example.creditcardtracker.theme.VaultUiTokens
 import com.example.creditcardtracker.theme.vaultGlass
 import com.example.creditcardtracker.theme.vaultGlow
+import com.example.creditcardtracker.theme.BdtText
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -61,6 +63,7 @@ fun OverviewScreen(
     onManageCardsClick: () -> Unit,
     onSubscriptionsClick: () -> Unit,
     onPaymentsClick: () -> Unit,
+    onCreditCommandClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val accounts = viewModel.accounts
@@ -216,6 +219,9 @@ fun OverviewScreen(
                     }
                 }
 
+                // Weekly Flow Bento Card
+                WeeklyFlowBentoCard(viewModel = viewModel)
+
                 // Quick Action Panel
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -271,28 +277,89 @@ fun OverviewScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(
-                        onClick = onSubscriptionsClick,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(vertical = 12.dp)
+                    // Credit Score Bento Card
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(96.dp)
+                            .clickable { onCreditCommandClick() }
+                            .vaultGlass(borderRadius = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                     ) {
-                        Icon(Icons.Outlined.Autorenew, contentDescription = "Bills")
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Bills & Subs", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Column(
+                            modifier = Modifier.padding(12.dp).fillMaxSize(),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Credit Score", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.Outlined.Star, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
+                            }
+                            Column {
+                                Text("784", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text("Excellent (+12)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
                     }
 
-                    Button(
-                        onClick = onPaymentsClick,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(vertical = 12.dp)
+                    // Bills & Subs Bento Card
+                    val activeBillsCount = viewModel.subscriptions.size
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(96.dp)
+                            .clickable { onSubscriptionsClick() }
+                            .vaultGlass(borderRadius = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                     ) {
-                        Icon(Icons.Outlined.Payments, contentDescription = "Payments")
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Payments Log", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Column(
+                            modifier = Modifier.padding(12.dp).fillMaxSize(),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Bills & Subs", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.Outlined.Autorenew, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+                            }
+                            Column {
+                                Text("$activeBillsCount Active", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                Text("Tap to view logs", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    // Payments Log Bento Card
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(96.dp)
+                            .clickable { onPaymentsClick() }
+                            .vaultGlass(borderRadius = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp).fillMaxSize(),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Payments", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.Outlined.Payments, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                            }
+                            Column {
+                                Text("Log History", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                Text("Tap to view", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     }
                 }
 
@@ -1781,6 +1848,150 @@ fun BenefitItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 16.sp
             )
+        }
+    }
+}
+
+@Composable
+fun WeeklyFlowBentoCard(
+    viewModel: TrackerViewModel,
+    modifier: Modifier = Modifier
+) {
+    val transactions = viewModel.transactions
+    
+    // We calculate the outflow for each of the last 7 days (today is index 6)
+    val dailyExpenses = remember(transactions) {
+        val expenses = DoubleArray(7)
+        for (i in 0..6) {
+            val checkCal = Calendar.getInstance()
+            checkCal.add(Calendar.DAY_OF_YEAR, -i)
+            val year = checkCal.get(Calendar.YEAR)
+            val dayOfYear = checkCal.get(Calendar.DAY_OF_YEAR)
+            
+            val totalForDay = transactions.filter { tx ->
+                if (tx.type == TransactionType.EXPENSE) {
+                    val txCal = Calendar.getInstance().apply { timeInMillis = tx.date }
+                    txCal.get(Calendar.YEAR) == year && txCal.get(Calendar.DAY_OF_YEAR) == dayOfYear
+                } else false
+            }.sumOf { tx -> tx.amount * tx.exchangeRate }
+            
+            expenses[6 - i] = totalForDay
+        }
+        expenses
+    }
+    
+    val dayLabels = remember {
+        val labels = arrayOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+        val orderedLabels = Array(7) { "" }
+        for (i in 0..6) {
+            val checkCal = Calendar.getInstance()
+            checkCal.add(Calendar.DAY_OF_YEAR, -i)
+            val dayIdx = (checkCal.get(Calendar.DAY_OF_WEEK) + 5) % 7 // Align Sunday (1) / Monday (2) to 0..6
+            orderedLabels[6 - i] = labels[dayIdx]
+        }
+        orderedLabels
+    }
+
+    val maxExpense = dailyExpenses.maxOrNull()?.coerceAtLeast(100.0) ?: 100.0
+    val totalWeeklyExpense = dailyExpenses.sum()
+    
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .vaultGlass(borderRadius = 28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column {
+                    Text(
+                        text = "Weekly Flow",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Outflow trends (last 7 days)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    BdtText(
+                        amount = totalWeeklyExpense,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Total Spent",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Canvas Bar Chart
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                dailyExpenses.forEachIndexed { index, expenseVal ->
+                    val heightFraction = (expenseVal / maxExpense).toFloat().coerceIn(0.05f, 1f)
+                    val label = dayLabels[index]
+                    val isToday = index == 6 // Rightmost is always today
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        // The actual bar
+                        val barBrush = if (isToday) {
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primary,
+                                    MaterialTheme.colorScheme.primaryContainer
+                                )
+                            )
+                        } else {
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f),
+                                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f)
+                                )
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                                .background(barBrush)
+                                .fillMaxHeight(heightFraction)
+                        )
+                        // Day Label
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
     }
 }

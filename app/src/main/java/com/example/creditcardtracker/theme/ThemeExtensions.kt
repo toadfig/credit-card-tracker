@@ -8,6 +8,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -19,8 +20,61 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import java.text.NumberFormat
+import java.util.Locale
+
+/**
+ * Format helper for South Asian currency digit grouping (lakhs & crores).
+ */
+fun formatBdtValue(amount: Double): String {
+    val isNegative = amount < 0
+    val absAmount = Math.abs(amount)
+    val formatter = NumberFormat.getNumberInstance(Locale("en", "IN"))
+    formatter.minimumFractionDigits = 2
+    formatter.maximumFractionDigits = 2
+    val formattedNumber = formatter.format(absAmount)
+    return if (isNegative) "-$formattedNumber" else formattedNumber
+}
+
+/**
+ * Premium BDT Currency Composable that renders the TAKA (৳) symbol 20% smaller
+ * and lighter weight than the numerical amount, ensuring focus on the value.
+ */
+@Composable
+fun BdtText(
+    amount: Double,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    fontWeight: FontWeight? = null
+) {
+    val numberText = formatBdtValue(amount)
+    val textColor = if (color != Color.Unspecified) color else style.color
+    val annotatedString = buildAnnotatedString {
+        withStyle(style = SpanStyle(
+            fontSize = style.fontSize * 0.8f,
+            fontWeight = FontWeight.Normal,
+            color = textColor
+        )) {
+            append("৳ ")
+        }
+        withStyle(style = SpanStyle(
+            fontSize = style.fontSize,
+            fontWeight = fontWeight ?: style.fontWeight ?: FontWeight.Normal,
+            color = textColor
+        )) {
+            append(numberText)
+        }
+    }
+    Text(text = annotatedString, style = style, modifier = modifier)
+}
 
 object VaultUiTokens {
     // Symmetrical Shape Tokens

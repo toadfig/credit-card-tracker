@@ -32,6 +32,8 @@ import com.example.creditcardtracker.data.TaxDeadline
 import com.example.creditcardtracker.data.TaxDeduction
 import com.example.creditcardtracker.data.VaultDocument
 import com.example.creditcardtracker.theme.vaultGlass
+import com.example.creditcardtracker.theme.BdtText
+import com.example.creditcardtracker.theme.formatBdtValue
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -47,14 +49,8 @@ fun TaxScreen(
     val vaultDocs = viewModel.vaultDocuments
     val context = LocalContext.current
 
-    val inLocale = Locale("en", "US")
-    val usdFormatter = remember {
-        val formatter = NumberFormat.getCurrencyInstance(inLocale)
-        formatter.currency = Currency.getInstance("USD")
-        formatter
-    }
-    fun formatUsd(amount: Double): String {
-        return usdFormatter.format(amount)
+    fun formatBdt(amount: Double): String {
+        return "৳ " + formatBdtValue(amount)
     }
 
     var showAddDeductionDialog by remember { mutableStateOf(false) }
@@ -90,8 +86,8 @@ fun TaxScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Bold
                             )
-                            Text(
-                                text = "$12,482.00",
+                            BdtText(
+                                amount = 1497840.00,
                                 style = MaterialTheme.typography.displayMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -108,7 +104,7 @@ fun TaxScreen(
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text("Federal Liability", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("$9,240", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    BdtText(amount = 1108800.00, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                 }
                             }
                             Card(
@@ -117,7 +113,7 @@ fun TaxScreen(
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text("State Liability", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("$3,242", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                                    BdtText(amount = 389040.00, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
                                 }
                             }
                         }
@@ -161,7 +157,7 @@ fun TaxScreen(
                         deductions.forEach { deduction ->
                             DeductionRow(
                                 deduction = deduction,
-                                formatUsd = ::formatUsd,
+                                formatBdt = ::formatBdt,
                                 onDelete = { viewModel.deleteTaxDeduction(deduction.id) },
                                 onUpdateActual = { actual -> viewModel.updateTaxDeduction(deduction.id, actual) }
                             )
@@ -290,12 +286,12 @@ fun TaxScreen(
 @Composable
 fun DeductionRow(
     deduction: TaxDeduction,
-    formatUsd: (Double) -> String,
+    formatBdt: (Double) -> String,
     onDelete: () -> Unit,
     onUpdateActual: (Double) -> Unit
 ) {
     var isEditing by remember { mutableStateOf(false) }
-    var editAmountText by remember { mutableStateOf(deduction.actualAmount.toString()) }
+    var editAmountText by remember { mutableStateOf((deduction.actualAmount * 120.0).toString()) }
     val progressFraction = if (deduction.targetAmount > 0) (deduction.actualAmount / deduction.targetAmount).toFloat().coerceIn(0f, 1f) else 0f
     
     val animatedProgress by animateFloatAsState(
@@ -355,15 +351,15 @@ fun DeductionRow(
                     OutlinedTextField(
                         value = editAmountText,
                         onValueChange = { editAmountText = it },
-                        label = { Text("Actual Amount Spent ($)") },
+                        label = { Text("Actual Amount Spent (৳)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
                     Button(
                         onClick = {
-                            val newActual = editAmountText.toDoubleOrNull() ?: 0.0
-                            onUpdateActual(newActual)
+                            val newActualBdt = editAmountText.toDoubleOrNull() ?: 0.0
+                            onUpdateActual(newActualBdt / 120.0)
                             isEditing = false
                         },
                         shape = RoundedCornerShape(8.dp)
@@ -378,12 +374,12 @@ fun DeductionRow(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Actual: ${formatUsd(deduction.actualAmount)}",
+                    text = "Actual: ${formatBdt(deduction.actualAmount * 120.0)}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "Target: ${formatUsd(deduction.targetAmount)}",
+                    text = "Target: ${formatBdt(deduction.targetAmount * 120.0)}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
@@ -642,7 +638,7 @@ fun AddDeductionDialog(
                 OutlinedTextField(
                     value = targetText,
                     onValueChange = { targetText = it },
-                    label = { Text("Target Deduction Limit ($)") },
+                    label = { Text("Target Deduction Limit (৳)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -651,7 +647,7 @@ fun AddDeductionDialog(
                 OutlinedTextField(
                     value = actualText,
                     onValueChange = { actualText = it },
-                    label = { Text("Current Actual Spent ($)") },
+                    label = { Text("Current Actual Spent (৳)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -661,12 +657,13 @@ fun AddDeductionDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val target = targetText.toDoubleOrNull() ?: 0.0
-                    val actual = actualText.toDoubleOrNull() ?: 0.0
-                    if (target <= 0.0) {
+                    val targetBdt = targetText.toDoubleOrNull() ?: 0.0
+                    val actualBdt = actualText.toDoubleOrNull() ?: 0.0
+                    if (targetBdt <= 0.0) {
                         Toast.makeText(context, "Please enter a valid target limit.", Toast.LENGTH_SHORT).show()
                     } else {
-                        onConfirm(category, target, actual)
+                        // Convert from BDT to native USD
+                        onConfirm(category, targetBdt / 120.0, actualBdt / 120.0)
                     }
                 }
             ) {

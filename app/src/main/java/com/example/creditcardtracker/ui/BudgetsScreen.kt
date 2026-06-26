@@ -31,6 +31,11 @@ import androidx.compose.ui.unit.sp
 import com.example.creditcardtracker.data.Budget
 import com.example.creditcardtracker.data.SavingsGoal
 import com.example.creditcardtracker.theme.vaultGlass
+import com.example.creditcardtracker.theme.BdtText
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -48,14 +53,9 @@ fun BudgetsScreen(
     var showAddBudgetDialog by remember { mutableStateOf(false) }
     var showAddGoalDialog by remember { mutableStateOf(false) }
 
-    val inLocale = Locale("en", "US")
-    val usdFormatter = remember { 
-        val formatter = NumberFormat.getCurrencyInstance(inLocale)
-        formatter.currency = Currency.getInstance("USD")
-        formatter
-    }
-    fun formatUsd(amount: Double): String {
-        return usdFormatter.format(amount)
+    val inLocale = Locale("en", "IN")
+    fun formatBdt(amount: Double): String {
+        return "৳ " + com.example.creditcardtracker.theme.formatBdtValue(amount)
     }
 
     Column(
@@ -126,7 +126,7 @@ fun BudgetsScreen(
                     
                     BentoSavingsGoalCard(
                         goal = goal,
-                        formatUsd = ::formatUsd,
+                        formatBdt = ::formatBdt,
                         onDelete = { viewModel.deleteSavingsGoal(goal.id) },
                         onUpdateClick = { showUpdateDialog = true }
                     )
@@ -243,7 +243,7 @@ fun BudgetsScreen(
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
-                    text = "Based on your spending patterns, you can increase your contributions by $150 this month without affecting your budget. Reach your goals 3 months faster!",
+                    text = "Based on your spending patterns, you can increase your contributions by ৳ 18,000 this month without affecting your budget. Reach your goals 3 months faster!",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
                 )
@@ -259,6 +259,9 @@ fun BudgetsScreen(
                 }
             }
         }
+
+        // Unified Debt Payoff Section
+        UnifiedDebtPayoffCard(viewModel = viewModel)
 
         // Monthly Budgets Section
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -320,7 +323,7 @@ fun BudgetsScreen(
                     BudgetProgressCard(
                         budget = budget,
                         spent = spent,
-                        formatBdt = ::formatUsd,
+                        formatBdt = ::formatBdt,
                         onDelete = { viewModel.deleteBudget(budget.id) },
                         onToggleRollover = { viewModel.toggleBudgetRollover(budget.id) }
                     )
@@ -509,7 +512,7 @@ fun BudgetsScreen(
 @Composable
 fun BentoSavingsGoalCard(
     goal: SavingsGoal,
-    formatUsd: (Double) -> String,
+    formatBdt: (Double) -> String,
     onDelete: () -> Unit,
     onUpdateClick: () -> Unit
 ) {
@@ -584,13 +587,13 @@ fun BentoSavingsGoalCard(
                     verticalAlignment = Alignment.Bottom
                 ) {
                     Text(
-                        text = formatUsd(goal.currentAmount),
+                        text = formatBdt(goal.currentAmount),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "of " + formatUsd(goal.targetAmount),
+                        text = "of " + formatBdt(goal.targetAmount),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -631,7 +634,7 @@ fun BentoSavingsGoalCard(
                 ) {
                     Column {
                         Text("Est. Monthly Contribution", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(formatUsd(monthlyContribution), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        Text(formatBdt(monthlyContribution), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     }
                     Button(
                         onClick = onUpdateClick,
@@ -763,7 +766,7 @@ fun UpdateGoalProgressDialog(
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { amountText = it },
-                    label = { Text("Saved Amount ($)") },
+                    label = { Text("Saved Amount (৳)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -790,4 +793,173 @@ fun UpdateGoalProgressDialog(
             }
         }
     )
+}
+
+@Composable
+fun UnifiedDebtPayoffCard(
+    viewModel: TrackerViewModel,
+    modifier: Modifier = Modifier
+) {
+    val accounts = viewModel.accounts
+    val creditCards = accounts.filter { it.accountType == com.example.creditcardtracker.data.AccountType.CREDIT_CARD }
+    val totalDebt = creditCards.sumOf { it.balance }
+    var strategy by remember { mutableStateOf("Avalanche") }
+
+    if (creditCards.isEmpty() || totalDebt <= 0) return
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .vaultGlass(borderRadius = 28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column {
+                    Text(
+                        text = "Unified Debt Payoff",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Accelerate your path to debt-free living",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    BdtText(
+                        amount = totalDebt,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        text = "Total Credit Liability",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Strategy Selector Toggles
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                listOf("Avalanche", "Snowball").forEach { strat ->
+                    val selected = strategy == strat
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(50))
+                            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                            .clickable { strategy = strat }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = strat,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Timeline & Projected Info
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("Est. Debt-Free Date", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            text = if (strategy == "Avalanche") "October 2027" else "December 2027",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("Interest WAIVED", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        BdtText(
+                            amount = if (strategy == "Avalanche") 24800.0 else 18600.0,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+            }
+
+            // Projected pay-down graph (Canvas path)
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp)
+                    .padding(top = 8.dp)
+            ) {
+                val w = size.width
+                val h = size.height
+                val path = Path()
+                
+                // Draw base axis line
+                drawLine(
+                    color = Color.Gray.copy(alpha = 0.3f),
+                    start = Offset(0f, h),
+                    end = Offset(w, h),
+                    strokeWidth = 1.dp.toPx()
+                )
+
+                // Avalanche Strategy path: faster drop
+                if (strategy == "Avalanche") {
+                    path.moveTo(0f, h * 0.1f)
+                    path.cubicTo(
+                        w * 0.25f, h * 0.15f,
+                        w * 0.6f, h * 0.8f,
+                        w, h
+                    )
+                } else {
+                    // Snowball: stepped drop
+                    path.moveTo(0f, h * 0.1f)
+                    path.lineTo(w * 0.2f, h * 0.1f)
+                    path.lineTo(w * 0.2f, h * 0.4f)
+                    path.lineTo(w * 0.5f, h * 0.4f)
+                    path.lineTo(w * 0.5f, h * 0.7f)
+                    path.lineTo(w * 0.8f, h * 0.7f)
+                    path.lineTo(w * 0.8f, h)
+                    path.lineTo(w, h)
+                }
+
+                drawPath(
+                    path = path,
+                    color = if (strategy == "Avalanche") Color(0xFF4CD6FB) else Color(0xFFFFBA27),
+                    style = Stroke(width = 3.dp.toPx())
+                )
+            }
+        }
+    }
 }

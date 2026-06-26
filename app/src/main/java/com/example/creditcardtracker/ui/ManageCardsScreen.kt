@@ -18,6 +18,14 @@ import androidx.compose.material.icons.outlined.AddCard
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Receipt
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.AccountBalance
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -294,35 +302,37 @@ fun AddAccountDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var step by remember { mutableStateOf(1) } // 1: Bank Selection Grid, 2: Authorization, 3: Manual Form
+    var selectedBank by remember { mutableStateOf("") }
+    
+    // Authorization state
+    var isConnecting by remember { mutableStateOf(false) }
+    var selectedOptionIndex by remember { mutableStateOf(0) } // 0: Savings, 1: Credit Card
+    
+    // Manual form state
     var accountType by remember { mutableStateOf(AccountType.CREDIT_CARD) }
     var bank by remember { mutableStateOf(BANGLADESH_ISSUERS[0]) }
     var name by remember { mutableStateOf("") }
-    var balanceText by remember { mutableStateOf("0") } // Available for cash/bank/MFS, outstanding for CC
-    
-    // Credit card specifics
+    var balanceText by remember { mutableStateOf("0") }
     var creditLimitText by remember { mutableStateOf("") }
     var cardNumber by remember { mutableStateOf("") }
     var expiryDate by remember { mutableStateOf("") }
     var cvv by remember { mutableStateOf("") }
     var statementDay by remember { mutableStateOf("1") }
     var dueDay by remember { mutableStateOf("1") }
-    
     var annualFeeText by remember { mutableStateOf("0") }
     var isFeeRedeemable by remember { mutableStateOf(false) }
     var feeRedemptionLimitText by remember { mutableStateOf("") }
-    var feeRedemptionUnit by remember { mutableStateOf("Spend") } // Spend / Points / Transactions
-    
+    var feeRedemptionUnit by remember { mutableStateOf("Spend") }
     var cardType by remember { mutableStateOf("Visa") }
     var cardTier by remember { mutableStateOf("Classic") }
     var annualLoungeQuotaText by remember { mutableStateOf("0") }
     var cashbackRateText by remember { mutableStateOf("0") }
     var rewardPointsRateText by remember { mutableStateOf("0") }
     var helpline by remember { mutableStateOf("") }
-    
     var isSmsEnabled by remember { mutableStateOf(false) }
     var smsSender by remember { mutableStateOf("") }
-
-    // Preset selection
     var selectedPresetIndex by remember { mutableStateOf(-1) }
 
     var showTypeDropdown by remember { mutableStateOf(false) }
@@ -334,419 +344,827 @@ fun AddAccountDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Account / Card", fontWeight = FontWeight.Bold) },
+        title = {
+            Text(
+                text = when (step) {
+                    1 -> "Select Your Bank"
+                    2 -> "Authorize Access"
+                    else -> "Add Account / Card"
+                },
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        },
         text = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 420.dp)
+                    .heightIn(max = 450.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Account Type Selector
-                Text("Account Type", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = { showTypeDropdown = true }, modifier = Modifier.fillMaxWidth()) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(accountType.name)
-                            Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown")
-                        }
-                    }
-                    DropdownMenu(expanded = showTypeDropdown, onDismissRequest = { showTypeDropdown = false }, modifier = Modifier.fillMaxWidth(0.8f)) {
-                        AccountType.values().forEach { type ->
-                            DropdownMenuItem(
-                                text = { Text(type.name) },
-                                onClick = {
-                                    accountType = type
-                                    showTypeDropdown = false
-                                    // Reset default banks
-                                    if (type == AccountType.MFS) {
-                                        bank = "bKash"
-                                        name = "bKash Wallet"
-                                    } else if (type == AccountType.CASH) {
-                                        bank = "Cash"
-                                        name = "Cash Ledger"
-                                    } else {
-                                        bank = BANGLADESH_ISSUERS[0]
-                                        name = ""
-                                    }
-                                    selectedPresetIndex = -1
-                                }
+                when (step) {
+                    1 -> {
+                        // Search bar (visual only)
+                        OutlinedTextField(
+                            value = "",
+                            onValueChange = {},
+                            placeholder = { Text("Search for your bank...", color = Color.White.copy(alpha = 0.5f)) },
+                            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = "Search", tint = Color.White.copy(alpha = 0.6f)) },
+                            singleLine = true,
+                            enabled = false,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                disabledTextColor = Color.White
                             )
-                        }
-                    }
-                }
-
-                // Preset Selector for Credit Cards
-                if (accountType == AccountType.CREDIT_CARD) {
-                    Text("Select Card Preset (Optional)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedButton(onClick = { showPresetDropdown = true }, modifier = Modifier.fillMaxWidth()) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(if (selectedPresetIndex >= 0) CARD_PRESETS[selectedPresetIndex].presetName else "Custom / Manual")
-                                Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown")
+                        )
+                        
+                        Text("Popular Institutions", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                        
+                        // 2x3 grid of popular options
+                        val popularOptions = listOf(
+                            "BRAC Bank" to Color(0xFF0D5C75),
+                            "City Bank" to Color(0xFF5C0D75),
+                            "DBBL" to Color(0xFF0D752E),
+                            "StanChart" to Color(0xFF75500D),
+                            "Eastern Bank (EBL)" to Color(0xFF2C0D75),
+                            "bKash" to Color(0xFFE2125B)
+                        )
+                        
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for (i in popularOptions.indices step 2) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    for (j in i..i+1) {
+                                        if (j < popularOptions.size) {
+                                            val (bName, bColor) = popularOptions[j]
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(80.dp)
+                                                    .clip(RoundedCornerShape(16.dp))
+                                                    .background(bColor.copy(alpha = 0.3f))
+                                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+                                                    .clickable {
+                                                        selectedBank = bName
+                                                        step = 2
+                                                        selectedOptionIndex = 0
+                                                    }
+                                                    .padding(12.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                    Icon(
+                                                        imageVector = Icons.Outlined.AccountBalance,
+                                                        contentDescription = null,
+                                                        tint = Color.White.copy(alpha = 0.9f),
+                                                        modifier = Modifier.size(24.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Text(
+                                                        text = bName,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 12.sp,
+                                                        color = Color.White,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
-                        DropdownMenu(expanded = showPresetDropdown, onDismissRequest = { showPresetDropdown = false }, modifier = Modifier.fillMaxWidth(0.8f)) {
-                            DropdownMenuItem(
-                                text = { Text("Custom / Manual") },
-                                onClick = {
-                                    selectedPresetIndex = -1
-                                    showPresetDropdown = false
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Custom setup button
+                        Button(
+                            onClick = { step = 3 },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                        ) {
+                            Icon(Icons.Outlined.AddCard, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Other Account (Manual Setup)", color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
+                    }
+                    2 -> {
+                        // Authorization Flow
+                        if (isConnecting) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text("Establishing secure connection to $selectedBank...", color = Color.White)
                                 }
+                            }
+                        } else {
+                            Text(
+                                text = "Money Manager needs permission to securely sync your transaction history and account balances from $selectedBank.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.8f)
                             )
-                            CARD_PRESETS.forEachIndexed { index, preset ->
-                                DropdownMenuItem(
-                                    text = { Text(preset.presetName) },
-                                    onClick = {
-                                        selectedPresetIndex = index
-                                        showPresetDropdown = false
-                                        // Auto fill values
-                                        bank = preset.bank
-                                        name = preset.name
-                                        cardType = preset.cardType
-                                        cardTier = preset.cardTier
-                                        annualFeeText = preset.annualFee.toString()
-                                        isFeeRedeemable = preset.isFeeRedeemable
-                                        feeRedemptionLimitText = preset.feeRedemptionLimit.toString()
-                                        feeRedemptionUnit = preset.feeRedemptionUnit
-                                        annualLoungeQuotaText = preset.annualLoungeQuota.toString()
-                                        cashbackRateText = (preset.cashbackRate * 100).toString()
-                                        rewardPointsRateText = preset.rewardPointsRate.toString()
-                                        helpline = preset.bankHelpline
-                                        smsSender = preset.smsSender
-                                        isSmsEnabled = preset.smsSender.isNotEmpty()
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Text("Select Account to Link", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                            
+                            // Let the user select the account type
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                val options = if (selectedBank == "bKash") {
+                                    listOf("bKash MFS Wallet (৳ 45,000.00 Balance)")
+                                } else {
+                                    listOf(
+                                        "Checking / Savings Account (৳ 2,50,000.00 Balance)",
+                                        "Credit Card (Visa Platinum - ৳ 3,00,000.00 Limit)"
+                                    )
+                                }
+                                
+                                options.forEachIndexed { idx, opt ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(if (selectedOptionIndex == idx) Color.White.copy(alpha = 0.1f) else Color.Transparent)
+                                            .clickable { selectedOptionIndex = idx }
+                                            .border(1.dp, if (selectedOptionIndex == idx) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(
+                                            selected = selectedOptionIndex == idx,
+                                            onClick = { selectedOptionIndex = idx },
+                                            colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(opt, color = Color.White, fontSize = 14.sp)
                                     }
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Text("Permissions Requested", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                            
+                            // Permission items
+                            val permissions = listOf(
+                                Icons.Outlined.Receipt to "Transaction History" to "Up to 24 months of historical data to categorize your spending patterns.",
+                                Icons.Outlined.AccountBalanceWallet to "Account Balances" to "Real-time balance updates to help keep your budget calculations accurate.",
+                                Icons.Outlined.Person to "Identity Verification" to "Basic profile information including name and account type for verification."
+                            )
+                            
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                permissions.forEach { perm ->
+                                    Row(modifier = Modifier.fillMaxWidth()) {
+                                        Icon(
+                                            imageVector = perm.first.first,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(perm.first.second, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                                            Text(perm.second, color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            // Privacy disclaimer
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.White.copy(alpha = 0.05f))
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Outlined.Lock, contentDescription = null, tint = Color.White.copy(alpha = 0.6f))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Your credentials are never stored. We use 256-bit bank-grade encryption to secure your data transfer.",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
                                 )
                             }
                         }
                     }
-                }
-
-                // Bank/Issuer Selector
-                if (accountType != AccountType.CASH) {
-                    Text(if (accountType == AccountType.MFS) "MFS Provider" else "Bank / Issuer", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                    if (accountType == AccountType.MFS) {
-                        var mfsDropdown by remember { mutableStateOf(false) }
+                    3 -> {
+                        // Account Type Selector
+                        Text("Account Type", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = Color.White)
                         Box(modifier = Modifier.fillMaxWidth()) {
-                            OutlinedButton(onClick = { mfsDropdown = true }, modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(onClick = { showTypeDropdown = true }, modifier = Modifier.fillMaxWidth()) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(bank)
-                                    Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown")
+                                    Text(accountType.name, color = Color.White)
+                                    Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown", tint = Color.White)
                                 }
                             }
-                            DropdownMenu(expanded = mfsDropdown, onDismissRequest = { mfsDropdown = false }) {
-                                listOf("bKash", "Nagad", "Rocket", "Upay", "CellFin", "Others").forEach { mfs ->
-                                    DropdownMenuItem(text = { Text(mfs) }, onClick = {
-                                        bank = mfs
-                                        name = "$mfs Wallet"
-                                        mfsDropdown = false
-                                    })
-                                }
-                            }
-                        }
-                    } else {
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            OutlinedButton(onClick = { showBankDropdown = true }, modifier = Modifier.fillMaxWidth()) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(bank)
-                                    Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown")
-                                }
-                            }
-                            DropdownMenu(expanded = showBankDropdown, onDismissRequest = { showBankDropdown = false }, modifier = Modifier.fillMaxWidth(0.8f)) {
-                                BANGLADESH_ISSUERS.forEach { issuer ->
-                                    DropdownMenuItem(text = { Text(issuer) }, onClick = {
-                                        bank = issuer
-                                        showBankDropdown = false
-                                    })
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Name
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Account Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Starting Balance (or outstanding)
-                OutlinedTextField(
-                    value = balanceText,
-                    onValueChange = { balanceText = it },
-                    label = { Text(if (accountType == AccountType.CREDIT_CARD) "Starting Outstanding Balance" else "Starting Available Balance") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Credit Card Specifics
-                if (accountType == AccountType.CREDIT_CARD) {
-                    OutlinedTextField(
-                        value = creditLimitText,
-                        onValueChange = { creditLimitText = it },
-                        label = { Text("Credit Limit") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = cardNumber,
-                        onValueChange = { cardNumber = it.filter { char -> char.isDigit() } },
-                        label = { Text("Card Number (digits)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = expiryDate,
-                            onValueChange = { expiryDate = it },
-                            label = { Text("Expiry (MM/YY)") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = cvv,
-                            onValueChange = { cvv = it },
-                            label = { Text("CVV") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = statementDay,
-                            onValueChange = { statementDay = it.filter { char -> char.isDigit() } },
-                            label = { Text("Statement Day (1-31)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = dueDay,
-                            onValueChange = { dueDay = it.filter { char -> char.isDigit() } },
-                            label = { Text("Due Day (1-31)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    // Card type and tier
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            OutlinedButton(onClick = { showCardTypeDropdown = true }, modifier = Modifier.fillMaxWidth()) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(cardType)
-                                    Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown")
-                                }
-                            }
-                            DropdownMenu(expanded = showCardTypeDropdown, onDismissRequest = { showCardTypeDropdown = false }) {
-                                CARD_TYPES.forEach { ct ->
-                                    DropdownMenuItem(text = { Text(ct) }, onClick = {
-                                        cardType = ct
-                                        showCardTypeDropdown = false
-                                    })
+                            DropdownMenu(expanded = showTypeDropdown, onDismissRequest = { showTypeDropdown = false }, modifier = Modifier.fillMaxWidth(0.8f)) {
+                                AccountType.values().forEach { type ->
+                                    DropdownMenuItem(
+                                        text = { Text(type.name) },
+                                        onClick = {
+                                            accountType = type
+                                            showTypeDropdown = false
+                                            if (type == AccountType.MFS) {
+                                                bank = "bKash"
+                                                name = "bKash Wallet"
+                                            } else if (type == AccountType.CASH) {
+                                                bank = "Cash"
+                                                name = "Cash Ledger"
+                                            } else {
+                                                bank = BANGLADESH_ISSUERS[0]
+                                                name = ""
+                                            }
+                                            selectedPresetIndex = -1
+                                        }
+                                    )
                                 }
                             }
                         }
 
-                        Box(modifier = Modifier.weight(1f)) {
-                            OutlinedButton(onClick = { showCardTierDropdown = true }, modifier = Modifier.fillMaxWidth()) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(cardTier)
-                                    Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown")
+                        // Preset Selector for Credit Cards
+                        if (accountType == AccountType.CREDIT_CARD) {
+                            Text("Select Card Preset (Optional)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = Color.White)
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                OutlinedButton(onClick = { showPresetDropdown = true }, modifier = Modifier.fillMaxWidth()) {
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(if (selectedPresetIndex >= 0) CARD_PRESETS[selectedPresetIndex].presetName else "Custom / Manual", color = Color.White)
+                                        Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown", tint = Color.White)
+                                    }
                                 }
-                            }
-                            DropdownMenu(expanded = showCardTierDropdown, onDismissRequest = { showCardTierDropdown = false }) {
-                                CARD_TIERS.forEach { tier ->
-                                    DropdownMenuItem(text = { Text(tier) }, onClick = {
-                                        cardTier = tier
-                                        showCardTierDropdown = false
-                                    })
+                                DropdownMenu(expanded = showPresetDropdown, onDismissRequest = { showPresetDropdown = false }, modifier = Modifier.fillMaxWidth(0.8f)) {
+                                    DropdownMenuItem(
+                                        text = { Text("Custom / Manual") },
+                                        onClick = {
+                                            selectedPresetIndex = -1
+                                            showPresetDropdown = false
+                                        }
+                                    )
+                                    CARD_PRESETS.forEachIndexed { index, preset ->
+                                        DropdownMenuItem(
+                                            text = { Text(preset.presetName) },
+                                            onClick = {
+                                                selectedPresetIndex = index
+                                                showPresetDropdown = false
+                                                bank = preset.bank
+                                                name = preset.name
+                                                cardType = preset.cardType
+                                                cardTier = preset.cardTier
+                                                annualFeeText = preset.annualFee.toString()
+                                                isFeeRedeemable = preset.isFeeRedeemable
+                                                feeRedemptionLimitText = preset.feeRedemptionLimit.toString()
+                                                feeRedemptionUnit = preset.feeRedemptionUnit
+                                                annualLoungeQuotaText = preset.annualLoungeQuota.toString()
+                                                cashbackRateText = (preset.cashbackRate * 100).toString()
+                                                rewardPointsRateText = preset.rewardPointsRate.toString()
+                                                helpline = preset.bankHelpline
+                                                smsSender = preset.smsSender
+                                                isSmsEnabled = preset.smsSender.isNotEmpty()
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // Annual Fee
-                    OutlinedTextField(
-                        value = annualFeeText,
-                        onValueChange = { annualFeeText = it },
-                        label = { Text("Annual Fee") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                        // Bank/Issuer Selector
+                        if (accountType != AccountType.CASH) {
+                            Text(if (accountType == AccountType.MFS) "MFS Provider" else "Bank / Issuer", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = Color.White)
+                            if (accountType == AccountType.MFS) {
+                                var mfsDropdown by remember { mutableStateOf(false) }
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedButton(onClick = { mfsDropdown = true }, modifier = Modifier.fillMaxWidth()) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(bank, color = Color.White)
+                                            Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown", tint = Color.White)
+                                        }
+                                    }
+                                    DropdownMenu(expanded = mfsDropdown, onDismissRequest = { mfsDropdown = false }) {
+                                        listOf("bKash", "Nagad", "Rocket", "Upay", "CellFin", "Others").forEach { mfs ->
+                                            DropdownMenuItem(text = { Text(mfs) }, onClick = {
+                                                bank = mfs
+                                                name = "$mfs Wallet"
+                                                mfsDropdown = false
+                                            })
+                                        }
+                                    }
+                                }
+                            } else {
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedButton(onClick = { showBankDropdown = true }, modifier = Modifier.fillMaxWidth()) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(bank, color = Color.White)
+                                            Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown", tint = Color.White)
+                                        }
+                                    }
+                                    DropdownMenu(expanded = showBankDropdown, onDismissRequest = { showBankDropdown = false }, modifier = Modifier.fillMaxWidth(0.8f)) {
+                                        BANGLADESH_ISSUERS.forEach { issuer ->
+                                            DropdownMenuItem(text = { Text(issuer) }, onClick = {
+                                                bank = issuer
+                                                showBankDropdown = false
+                                            })
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Fee Waiver Redeemable", fontWeight = FontWeight.Bold)
-                        Switch(checked = isFeeRedeemable, onCheckedChange = { isFeeRedeemable = it })
-                    }
-
-                    if (isFeeRedeemable) {
+                        // Name
                         OutlinedTextField(
-                            value = feeRedemptionLimitText,
-                            onValueChange = { feeRedemptionLimitText = it },
-                            label = { Text("Redemption Cap Limit") },
+                            value = name,
+                            onValueChange = { name = it },
+                            label = { Text("Account Name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            )
+                        )
+
+                        // Starting Balance (or outstanding)
+                        OutlinedTextField(
+                            value = balanceText,
+                            onValueChange = { balanceText = it },
+                            label = { Text(if (accountType == AccountType.CREDIT_CARD) "Starting Outstanding Balance" else "Starting Available Balance") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            )
                         )
 
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            OutlinedButton(onClick = { showRedeemUnitDropdown = true }, modifier = Modifier.fillMaxWidth()) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Redeem Unit: $feeRedemptionUnit")
-                                    Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown")
+                        // Credit Card Specifics
+                        if (accountType == AccountType.CREDIT_CARD) {
+                            OutlinedTextField(
+                                value = creditLimitText,
+                                onValueChange = { creditLimitText = it },
+                                label = { Text("Credit Limit") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White
+                                )
+                            )
+
+                            OutlinedTextField(
+                                value = cardNumber,
+                                onValueChange = { cardNumber = it.filter { char -> char.isDigit() } },
+                                label = { Text("Card Number (digits)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White
+                                )
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = expiryDate,
+                                    onValueChange = { expiryDate = it },
+                                    label = { Text("Expiry (MM/YY)") },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White
+                                    )
+                                )
+                                OutlinedTextField(
+                                    value = cvv,
+                                    onValueChange = { cvv = it },
+                                    label = { Text("CVV") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White
+                                    )
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = statementDay,
+                                    onValueChange = { statementDay = it.filter { char -> char.isDigit() } },
+                                    label = { Text("Statement Day (1-31)") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White
+                                    )
+                                )
+                                OutlinedTextField(
+                                    value = dueDay,
+                                    onValueChange = { dueDay = it.filter { char -> char.isDigit() } },
+                                    label = { Text("Due Day (1-31)") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White
+                                    )
+                                )
+                            }
+
+                            // Card type and tier
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    OutlinedButton(onClick = { showCardTypeDropdown = true }, modifier = Modifier.fillMaxWidth()) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(cardType, color = Color.White)
+                                            Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown", tint = Color.White)
+                                        }
+                                    }
+                                    DropdownMenu(expanded = showCardTypeDropdown, onDismissRequest = { showCardTypeDropdown = false }) {
+                                        CARD_TYPES.forEach { ct ->
+                                            DropdownMenuItem(text = { Text(ct) }, onClick = {
+                                                cardType = ct
+                                                showCardTypeDropdown = false
+                                            })
+                                        }
+                                    }
+                                }
+
+                                Box(modifier = Modifier.weight(1f)) {
+                                    OutlinedButton(onClick = { showCardTierDropdown = true }, modifier = Modifier.fillMaxWidth()) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(cardTier, color = Color.White)
+                                            Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown", tint = Color.White)
+                                        }
+                                    }
+                                    DropdownMenu(expanded = showCardTierDropdown, onDismissRequest = { showCardTierDropdown = false }) {
+                                        CARD_TIERS.forEach { tier ->
+                                            DropdownMenuItem(text = { Text(tier) }, onClick = {
+                                                cardTier = tier
+                                                showCardTierDropdown = false
+                                            })
+                                        }
+                                    }
                                 }
                             }
-                            DropdownMenu(expanded = showRedeemUnitDropdown, onDismissRequest = { showRedeemUnitDropdown = false }) {
-                                listOf("Spend", "Points", "Transactions").forEach { unit ->
-                                    DropdownMenuItem(text = { Text(unit) }, onClick = {
-                                        feeRedemptionUnit = unit
-                                        showRedeemUnitDropdown = false
-                                    })
+
+                            // Annual Fee
+                            OutlinedTextField(
+                                value = annualFeeText,
+                                onValueChange = { annualFeeText = it },
+                                label = { Text("Annual Fee") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White
+                                )
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Fee Waiver Redeemable", fontWeight = FontWeight.Bold, color = Color.White)
+                                Switch(checked = isFeeRedeemable, onCheckedChange = { isFeeRedeemable = it })
+                            }
+
+                            if (isFeeRedeemable) {
+                                OutlinedTextField(
+                                    value = feeRedemptionLimitText,
+                                    onValueChange = { feeRedemptionLimitText = it },
+                                    label = { Text("Redemption Cap Limit") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White
+                                    )
+                                )
+
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedButton(onClick = { showRedeemUnitDropdown = true }, modifier = Modifier.fillMaxWidth()) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Redeem Unit: $feeRedemptionUnit", color = Color.White)
+                                            Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown", tint = Color.White)
+                                        }
+                                    }
+                                    DropdownMenu(expanded = showRedeemUnitDropdown, onDismissRequest = { showRedeemUnitDropdown = false }) {
+                                        listOf("Spend", "Points", "Transactions").forEach { unit ->
+                                            DropdownMenuItem(text = { Text(unit) }, onClick = {
+                                                feeRedemptionUnit = unit
+                                                showRedeemUnitDropdown = false
+                                            })
+                                        }
+                                    }
                                 }
                             }
+
+                            OutlinedTextField(
+                                value = annualLoungeQuotaText,
+                                onValueChange = { annualLoungeQuotaText = it.filter { char -> char.isDigit() } },
+                                label = { Text("Annual Lounge Quota (Visits)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White
+                                )
+                            )
+
+                            OutlinedTextField(
+                                value = cashbackRateText,
+                                onValueChange = { cashbackRateText = it },
+                                label = { Text("Cashback Rate (%)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White
+                                )
+                            )
+
+                            OutlinedTextField(
+                                value = rewardPointsRateText,
+                                onValueChange = { rewardPointsRateText = it },
+                                label = { Text("Reward Points Rate (Points per spent)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White
+                                )
+                            )
+
+                            OutlinedTextField(
+                                value = helpline,
+                                onValueChange = { helpline = it },
+                                label = { Text("Bank Helpline") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White
+                                )
+                            )
+                        }
+
+                        // SMS Configuration
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Enable SMS Parsing", fontWeight = FontWeight.Bold, color = Color.White)
+                                Text("Extract transaction amounts dynamically from SMS inbox alerts.", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                            }
+                            Switch(checked = isSmsEnabled, onCheckedChange = { isSmsEnabled = it })
+                        }
+
+                        if (isSmsEnabled) {
+                            OutlinedTextField(
+                                value = smsSender,
+                                onValueChange = { smsSender = it },
+                                label = { Text("SMS Sender Name (e.g. BRACBANK, EBL)") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White
+                                )
+                            )
                         }
                     }
-
-                    OutlinedTextField(
-                        value = annualLoungeQuotaText,
-                        onValueChange = { annualLoungeQuotaText = it.filter { char -> char.isDigit() } },
-                        label = { Text("Annual Lounge Quota (Visits)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = cashbackRateText,
-                        onValueChange = { cashbackRateText = it },
-                        label = { Text("Cashback Rate (%)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = rewardPointsRateText,
-                        onValueChange = { rewardPointsRateText = it },
-                        label = { Text("Reward Points Rate (Points per spent)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = helpline,
-                        onValueChange = { helpline = it },
-                        label = { Text("Bank Helpline") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                // SMS Configuration
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Enable SMS Parsing", fontWeight = FontWeight.Bold)
-                        Text("Extract transaction amounts dynamically from SMS inbox alerts.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(checked = isSmsEnabled, onCheckedChange = { isSmsEnabled = it })
-                }
-
-                if (isSmsEnabled) {
-                    OutlinedTextField(
-                        value = smsSender,
-                        onValueChange = { smsSender = it },
-                        label = { Text("SMS Sender Name (e.g. BRACBANK, EBL)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
                 }
             }
         },
         confirmButton = {
+            when (step) {
+                1 -> {
+                    // No confirm button needed for grid select
+                }
+                2 -> {
+                    if (!isConnecting) {
+                        TextButton(
+                            onClick = {
+                                isConnecting = true
+                                scope.launch {
+                                    delay(1500) // Simulate connecting progress
+                                    
+                                    // Add the selected account to database
+                                    if (selectedBank == "bKash") {
+                                        viewModel.addAccount(
+                                            name = "bKash Wallet",
+                                            bank = "bKash",
+                                            accountType = AccountType.MFS,
+                                            balance = 45000.0,
+                                            creditLimit = 0.0,
+                                            cardNumber = "",
+                                            expiryDate = "",
+                                            cvv = "",
+                                            statementDay = 1,
+                                            dueDay = 1,
+                                            annualFee = 0.0,
+                                            isFeeRedeemable = false,
+                                            feeRedemptionLimit = 0.0,
+                                            feeRedemptionUnit = "Spend",
+                                            accountColorIndex = 4,
+                                            isSmsTrackingEnabled = true,
+                                            smsSender = "bKash",
+                                            cardType = "",
+                                            cardTier = "",
+                                            annualLoungeQuota = 0,
+                                            cashbackRate = 0.0,
+                                            rewardPointsRate = 0.0,
+                                            bankHelpline = "16247"
+                                        )
+                                    } else {
+                                        val actualBank = when (selectedBank) {
+                                            "DBBL" -> "Dutch-Bangla Bank (DBBL)"
+                                            "StanChart" -> "Standard Chartered (SCB)"
+                                            "Eastern Bank (EBL)" -> "Eastern Bank (EBL)"
+                                            else -> selectedBank
+                                        }
+                                        
+                                        if (selectedOptionIndex == 0) {
+                                            // Savings account
+                                            viewModel.addAccount(
+                                                name = "Checking / Savings",
+                                                bank = actualBank,
+                                                accountType = AccountType.BANK_ACCOUNT,
+                                                balance = 250000.0,
+                                                creditLimit = 0.0,
+                                                cardNumber = "",
+                                                expiryDate = "",
+                                                cvv = "",
+                                                statementDay = 1,
+                                                dueDay = 1,
+                                                annualFee = 0.0,
+                                                isFeeRedeemable = false,
+                                                feeRedemptionLimit = 0.0,
+                                                feeRedemptionUnit = "Spend",
+                                                accountColorIndex = 1,
+                                                isSmsTrackingEnabled = false,
+                                                smsSender = "",
+                                                cardType = "",
+                                                cardTier = "",
+                                                annualLoungeQuota = 0,
+                                                cashbackRate = 0.0,
+                                                rewardPointsRate = 0.0,
+                                                bankHelpline = ""
+                                            )
+                                        } else {
+                                            // Credit Card preset based on bank
+                                            val limit = 300000.0
+                                            val cTier = if (selectedBank == "StanChart") "Signature" else "Platinum"
+                                            val cType = if (selectedBank == "City Bank") "American Express" else "Visa"
+                                            val fee = if (selectedBank == "City Bank") 10000.0 else 5000.0
+                                            val sender = when (selectedBank) {
+                                                "BRAC Bank" -> "BRACBANK"
+                                                "City Bank" -> "CITYBANK"
+                                                "DBBL" -> "DBBL"
+                                                "StanChart" -> "SCB"
+                                                "Eastern Bank (EBL)" -> "EBL"
+                                                else -> "BANK"
+                                            }
+                                            val namePreset = "$cType $cTier"
+                                            
+                                            viewModel.addAccount(
+                                                name = namePreset,
+                                                bank = actualBank,
+                                                accountType = AccountType.CREDIT_CARD,
+                                                balance = 12450.0,
+                                                creditLimit = limit,
+                                                cardNumber = "4321",
+                                                expiryDate = "12/29",
+                                                cvv = "999",
+                                                statementDay = 15,
+                                                dueDay = 2,
+                                                annualFee = fee,
+                                                isFeeRedeemable = true,
+                                                feeRedemptionLimit = 2500.0,
+                                                feeRedemptionUnit = "Points",
+                                                accountColorIndex = 2,
+                                                isSmsTrackingEnabled = true,
+                                                smsSender = sender,
+                                                cardType = cType,
+                                                cardTier = cTier,
+                                                annualLoungeQuota = 8,
+                                                cashbackRate = 0.01,
+                                                rewardPointsRate = 1.0,
+                                                bankHelpline = "16221"
+                                            )
+                                        }
+                                    }
+                                    isConnecting = false
+                                    Toast.makeText(context, "$selectedBank successfully linked!", Toast.LENGTH_LONG).show()
+                                    onDismiss()
+                                }
+                            }
+                        ) {
+                            Text("Authorize Access", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                3 -> {
+                    TextButton(
+                        onClick = {
+                            val bal = balanceText.toDoubleOrNull() ?: 0.0
+                            val limit = creditLimitText.toDoubleOrNull() ?: 0.0
+                            val fee = annualFeeText.toDoubleOrNull() ?: 0.0
+                            val waiveLimit = feeRedemptionLimitText.toDoubleOrNull() ?: 0.0
+                            val lounge = annualLoungeQuotaText.toIntOrNull() ?: 0
+                            val cashback = (cashbackRateText.toDoubleOrNull() ?: 0.0) / 100.0
+                            val pointsRate = rewardPointsRateText.toDoubleOrNull() ?: 0.0
+                            val stDay = statementDay.toIntOrNull() ?: 1
+                            val dDay = dueDay.toIntOrNull() ?: 1
+
+                            if (name.isBlank() || (accountType != AccountType.CASH && bank.isBlank())) {
+                                Toast.makeText(context, "Fill in required credentials.", Toast.LENGTH_SHORT).show()
+                            } else if (accountType == AccountType.CREDIT_CARD && limit <= 0.0) {
+                                Toast.makeText(context, "Please enter a valid credit limit.", Toast.LENGTH_SHORT).show()
+                            } else {
+                                viewModel.addAccount(
+                                    name = name.trim(),
+                                    bank = bank.trim(),
+                                    accountType = accountType,
+                                    balance = bal,
+                                    creditLimit = limit,
+                                    cardNumber = cardNumber.trim(),
+                                    expiryDate = expiryDate.trim(),
+                                    cvv = cvv.trim(),
+                                    statementDay = stDay,
+                                    dueDay = dDay,
+                                    annualFee = fee,
+                                    isFeeRedeemable = isFeeRedeemable,
+                                    feeRedemptionLimit = waiveLimit,
+                                    feeRedemptionUnit = feeRedemptionUnit,
+                                    accountColorIndex = if (accountType == AccountType.CREDIT_CARD) (selectedPresetIndex.coerceAtLeast(0) % 5) else 0,
+                                    isSmsTrackingEnabled = isSmsEnabled,
+                                    smsSender = smsSender.trim(),
+                                    cardType = cardType,
+                                    cardTier = cardTier,
+                                    annualLoungeQuota = lounge,
+                                    cashbackRate = cashback,
+                                    rewardPointsRate = pointsRate,
+                                    bankHelpline = helpline.trim()
+                                )
+                                onDismiss()
+                            }
+                        }
+                    ) {
+                        Text("Save Account", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        },
+        dismissButton = {
             TextButton(
                 onClick = {
-                    val bal = balanceText.toDoubleOrNull() ?: 0.0
-                    val limit = creditLimitText.toDoubleOrNull() ?: 0.0
-                    val fee = annualFeeText.toDoubleOrNull() ?: 0.0
-                    val waiveLimit = feeRedemptionLimitText.toDoubleOrNull() ?: 0.0
-                    val lounge = annualLoungeQuotaText.toIntOrNull() ?: 0
-                    val cashback = (cashbackRateText.toDoubleOrNull() ?: 0.0) / 100.0
-                    val pointsRate = rewardPointsRateText.toDoubleOrNull() ?: 0.0
-                    val stDay = statementDay.toIntOrNull() ?: 1
-                    val dDay = dueDay.toIntOrNull() ?: 1
-
-                    if (name.isBlank() || (accountType != AccountType.CREDIT_CARD && bank.isBlank())) {
-                        Toast.makeText(context, "Fill in required credentials.", Toast.LENGTH_SHORT).show()
-                    } else if (accountType == AccountType.CREDIT_CARD && limit <= 0.0) {
-                        Toast.makeText(context, "Please enter a valid credit limit.", Toast.LENGTH_SHORT).show()
+                    if (step > 1 && !isConnecting) {
+                        step = 1
                     } else {
-                        viewModel.addAccount(
-                            name = name.trim(),
-                            bank = bank.trim(),
-                            accountType = accountType,
-                            balance = bal,
-                            creditLimit = limit,
-                            cardNumber = cardNumber.trim(),
-                            expiryDate = expiryDate.trim(),
-                            cvv = cvv.trim(),
-                            statementDay = stDay,
-                            dueDay = dDay,
-                            annualFee = fee,
-                            isFeeRedeemable = isFeeRedeemable,
-                            feeRedemptionLimit = waiveLimit,
-                            feeRedemptionUnit = feeRedemptionUnit,
-                            accountColorIndex = if (accountType == AccountType.CREDIT_CARD) (selectedPresetIndex.coerceAtLeast(0) % 5) else 0,
-                            isSmsTrackingEnabled = isSmsEnabled,
-                            smsSender = smsSender.trim(),
-                            cardType = cardType,
-                            cardTier = cardTier,
-                            annualLoungeQuota = lounge,
-                            cashbackRate = cashback,
-                            rewardPointsRate = pointsRate,
-                            bankHelpline = helpline.trim()
-                        )
                         onDismiss()
                     }
                 }
             ) {
-                Text("Save Account", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(if (step > 1 && !isConnecting) "Back" else "Cancel")
             }
         }
     )

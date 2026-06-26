@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.creditcardtracker.data.Holding
 import com.example.creditcardtracker.theme.vaultGlass
+import com.example.creditcardtracker.theme.BdtText
+import com.example.creditcardtracker.theme.formatBdtValue
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -45,20 +47,14 @@ fun InvestmentsScreen(
     val context = LocalContext.current
     var showAddDialog by remember { mutableStateOf(false) }
 
-    // Standard Currency Formatting
-    val inLocale = Locale("en", "US")
-    val usdFormatter = remember {
-        val formatter = NumberFormat.getCurrencyInstance(inLocale)
-        formatter.currency = java.util.Currency.getInstance("USD")
-        formatter
-    }
-    fun formatUsd(amount: Double): String {
-        return usdFormatter.format(amount)
+    // Standard Currency Formatting (BDT)
+    fun formatBdt(amount: Double): String {
+        return "৳ " + formatBdtValue(amount)
     }
 
-    // Calculations
-    val totalPortfolioValue = holdings.sumOf { it.shares * it.currentPrice }
-    val totalCostBasis = holdings.sumOf { it.shares * it.averageCost }
+    // Calculations (Multiplying by 120x to convert USD to BDT)
+    val totalPortfolioValue = holdings.sumOf { it.shares * it.currentPrice } * 120.0
+    val totalCostBasis = holdings.sumOf { it.shares * it.averageCost } * 120.0
     val totalGainLoss = totalPortfolioValue - totalCostBasis
     val gainLossPercent = if (totalCostBasis > 0) (totalGainLoss / totalCostBasis) * 100 else 0.0
 
@@ -114,8 +110,8 @@ fun InvestmentsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = formatUsd(totalPortfolioValue),
+                    BdtText(
+                        amount = totalPortfolioValue,
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
@@ -140,7 +136,7 @@ fun InvestmentsScreen(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = String.format(Locale.US, "%+.2f%% (%s)", gainLossPercent, formatUsd(totalGainLoss)),
+                            text = String.format(Locale.US, "%+.2f%% (৳ %s)", gainLossPercent, formatBdtValue(totalGainLoss)),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (totalGainLoss >= 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
@@ -345,14 +341,8 @@ fun LegendRow(name: String, pct: Double, color: Color) {
 
 @Composable
 fun HoldingItem(holding: Holding, onDelete: () -> Unit) {
-    val usdFormatter = remember {
-        val formatter = NumberFormat.getCurrencyInstance(Locale("en", "US"))
-        formatter.currency = java.util.Currency.getInstance("USD")
-        formatter
-    }
-
-    val value = holding.shares * holding.currentPrice
-    val totalCost = holding.shares * holding.averageCost
+    val value = (holding.shares * holding.currentPrice) * 120.0
+    val totalCost = (holding.shares * holding.averageCost) * 120.0
     val gain = value - totalCost
     val isPositive = gain >= 0
 
@@ -445,8 +435,8 @@ fun HoldingItem(holding: Holding, onDelete: () -> Unit) {
                 horizontalAlignment = Alignment.End,
                 modifier = Modifier.weight(1f)
             ) {
-                Text(
-                    text = usdFormatter.format(value),
+                BdtText(
+                    amount = value,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -555,7 +545,7 @@ fun AddHoldingDialog(
                     OutlinedTextField(
                         value = costText,
                         onValueChange = { costText = it },
-                        label = { Text("Avg Cost ($)") },
+                        label = { Text("Avg Cost (৳)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier.weight(1f)
@@ -565,7 +555,7 @@ fun AddHoldingDialog(
                     OutlinedTextField(
                         value = priceText,
                         onValueChange = { priceText = it },
-                        label = { Text("Current Price ($)") },
+                        label = { Text("Current Price (৳)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier.weight(1f)
@@ -585,14 +575,15 @@ fun AddHoldingDialog(
             TextButton(
                 onClick = {
                     val shares = sharesText.toDoubleOrNull() ?: 0.0
-                    val cost = costText.toDoubleOrNull() ?: 0.0
-                    val price = priceText.toDoubleOrNull() ?: 0.0
+                    val costBdt = costText.toDoubleOrNull() ?: 0.0
+                    val priceBdt = priceText.toDoubleOrNull() ?: 0.0
                     val daily = dailyText.toDoubleOrNull() ?: 0.0
 
-                    if (ticker.isBlank() || name.isBlank() || shares <= 0.0 || cost <= 0.0 || price <= 0.0) {
+                    if (ticker.isBlank() || name.isBlank() || shares <= 0.0 || costBdt <= 0.0 || priceBdt <= 0.0) {
                         Toast.makeText(context, "Please fill in all details.", Toast.LENGTH_SHORT).show()
                     } else {
-                        onConfirm(ticker.trim(), name.trim(), shares, cost, price, daily)
+                        // Store in native USD values
+                        onConfirm(ticker.trim(), name.trim(), shares, costBdt / 120.0, priceBdt / 120.0, daily)
                     }
                 }
             ) {

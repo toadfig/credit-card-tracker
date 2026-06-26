@@ -43,7 +43,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     val vaultDocuments = mutableStateListOf<VaultDocument>()
 
     val isBiometricEnabled = mutableStateOf(sharedPrefs.getBoolean("biometric_enabled", false))
-    val isDynamicColorEnabled = mutableStateOf(sharedPrefs.getBoolean("dynamic_color_enabled", true))
+    val isDynamicColorEnabled = mutableStateOf(sharedPrefs.getBoolean("dynamic_color_enabled", false))
     val isUnlocked = mutableStateOf(!isBiometricEnabled.value)
     val selectedIndex = mutableStateOf(0)
 
@@ -162,6 +162,33 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                     cashbackRate = 1.5,
                     rewardPointsRate = 2.0,
                     bankHelpline = "16230"
+                )
+            )
+            dbHelper.accounts.add(
+                Account(
+                    name = "Main Savings",
+                    bank = "BRAC Bank",
+                    accountType = AccountType.BANK_ACCOUNT,
+                    balance = 250000.0,
+                    accountColorIndex = 4
+                )
+            )
+            dbHelper.accounts.add(
+                Account(
+                    name = "bKash Wallet",
+                    bank = "bKash",
+                    accountType = AccountType.MFS,
+                    balance = 45000.0,
+                    accountColorIndex = 5
+                )
+            )
+            dbHelper.accounts.add(
+                Account(
+                    name = "Cash Wallet",
+                    bank = "Cash",
+                    accountType = AccountType.CASH,
+                    balance = 12500.0,
+                    accountColorIndex = 6
                 )
             )
             changed = true

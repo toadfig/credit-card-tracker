@@ -263,12 +263,12 @@ fun SpendingAnalyticsCard(
 ) {
     val categories = listOf("Food & Dining", "Groceries", "Transportation", "Shopping", "Utilities", "Others")
     val categoryColors = listOf(
-        Color(0xFFEF476F),
-        Color(0xFF118AB2),
-        Color(0xFF06D6A0),
-        Color(0xFFFFD166),
-        Color(0xFF072AC8),
-        Color(0xFF708090)
+        Color(0xFF4CD6FB), // Cyan
+        Color(0xFF7DFFA2), // Emerald
+        Color(0xFFFFBA27), // Gold
+        Color(0xFFFFB4AB), // Crimson
+        Color(0xFFC084FC), // Purple
+        Color(0xFF869398)  // Outline / Gray
     )
 
     // Calculate sum per category
