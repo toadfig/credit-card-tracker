@@ -6,8 +6,7 @@ import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -188,9 +187,9 @@ class MainActivity : FragmentActivity() {
                                     AnimatedContent(
                                         targetState = currentTab,
                                         transitionSpec = {
-                                            fadeIn(animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)) + 
-                                            slideInVertically(animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow), initialOffsetY = { it / 10 }) togetherWith 
-                                            fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMedium))
+                                            fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) + 
+                                            slideInVertically(animationSpec = tween(220, easing = FastOutSlowInEasing), initialOffsetY = { it / 20 }) togetherWith 
+                                            fadeOut(animationSpec = tween(150, easing = FastOutSlowInEasing))
                                         },
                                         label = "TabTransition"
                                     ) { targetTab ->

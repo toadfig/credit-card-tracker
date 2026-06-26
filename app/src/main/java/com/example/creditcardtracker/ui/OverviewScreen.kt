@@ -1,7 +1,5 @@
 package com.example.creditcardtracker.ui
 
-import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -26,15 +24,11 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -46,11 +40,7 @@ import com.example.creditcardtracker.data.Account
 import com.example.creditcardtracker.data.AccountType
 import com.example.creditcardtracker.data.Transaction
 import com.example.creditcardtracker.data.TransactionType
-import com.example.creditcardtracker.data.LoungeVisit
-import com.example.creditcardtracker.data.EmiPlan
-import com.example.creditcardtracker.theme.VaultUiTokens
 import com.example.creditcardtracker.theme.vaultGlass
-import com.example.creditcardtracker.theme.vaultGlow
 import com.example.creditcardtracker.theme.BdtText
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -128,7 +118,7 @@ fun OverviewScreen(
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(
                         onClick = onManageCardsClick,
-                        shape = VaultUiTokens.ShapeFullPill
+                        shape = RoundedCornerShape(50)
                     ) {
                         Icon(Icons.Filled.Add, contentDescription = "Add Account")
                         Spacer(modifier = Modifier.width(8.dp))
@@ -162,7 +152,7 @@ fun OverviewScreen(
                         )
                         Text(
                             text = formatBdt(netWorth),
-                            style = MaterialTheme.typography.headlineLarge,
+                            style = MaterialTheme.typography.displayMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (netWorth >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                         )
@@ -217,9 +207,6 @@ fun OverviewScreen(
                         )
                     }
                 }
-
-                // Weekly Flow Bento Card
-                WeeklyFlowBentoCard(viewModel = viewModel)
 
                 // Quick Action Panel
                 Row(
@@ -497,8 +484,6 @@ fun SelectedAccountDetailsView(
     viewModel: TrackerViewModel,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    
     val inLocale = Locale("en", "IN")
     val bdtFormatter = remember { 
         val formatter = NumberFormat.getCurrencyInstance(inLocale)
@@ -515,9 +500,7 @@ fun SelectedAccountDetailsView(
         val remainingLimit = (account.creditLimit - activeSpend).coerceAtLeast(0.0)
         val unpaidStatementBalance = (activeSpend - activePayments).coerceAtLeast(0.0)
 
-        val cycleRange = viewModel.getBillingCycleRange(account.statementDay)
         val dueDateMillis = viewModel.getDueDateForCycle(account.statementDay, account.dueDay)
-        
         val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
 
         val today = Calendar.getInstance().apply {
@@ -528,25 +511,6 @@ fun SelectedAccountDetailsView(
         }.timeInMillis
         
         val daysRemaining = ((dueDateMillis - today) / (1000 * 60 * 60 * 24)).toInt()
-
-        var showLoungeLogDialog by remember { mutableStateOf(false) }
-        var showEmiLogDialog by remember { mutableStateOf(false) }
-        var showScanDialog by remember { mutableStateOf(false) }
-
-        var simulatedPaymentFraction by remember { mutableStateOf(1f) }
-        val simulatedPaymentAmount = unpaidStatementBalance * simulatedPaymentFraction
-        val simulatedUnpaidAmount = (unpaidStatementBalance - simulatedPaymentAmount).coerceAtLeast(0.0)
-        val simulatedInterestCharge = simulatedUnpaidAmount * 0.025 // 2.5% finance charge estimate
-
-        val permissionLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            if (isGranted) {
-                showScanDialog = true
-            } else {
-                Toast.makeText(context, "SMS read permission denied.", Toast.LENGTH_SHORT).show()
-            }
-        }
 
         Card(
             modifier = modifier
@@ -673,399 +637,7 @@ fun SelectedAccountDetailsView(
                         }
                     }
                 }
-
-                // SMS Inbox Scanner Banner
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Sms,
-                                contentDescription = "SMS Scan",
-                                tint = MaterialTheme.colorScheme.secondary
-                            )
-                            Column {
-                                Text("SMS Inbox Scanner", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                Text("Scan historical texts from ${account.smsSender}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        Button(
-                            onClick = {
-                                val hasReadSms = androidx.core.content.ContextCompat.checkSelfPermission(
-                                    context,
-                                    android.Manifest.permission.READ_SMS
-                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                                if (hasReadSms) {
-                                    showScanDialog = true
-                                } else {
-                                    permissionLauncher.launch(android.Manifest.permission.READ_SMS)
-                                }
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Text("Scan Inbox", style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                }
-
-                // Interest Payment Simulator
-                if (unpaidStatementBalance > 0) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(Icons.Outlined.Calculate, contentDescription = "Calculator", tint = MaterialTheme.colorScheme.primary)
-                                Text("Interest Payment Simulator", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                            }
-                            Text(
-                                text = "Simulate payment fraction to see estimated future finance charges (2.5% monthly estimate on unpaid balances). Dispute claims must be filed within 45 days.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Slider(
-                                value = simulatedPaymentFraction,
-                                onValueChange = { simulatedPaymentFraction = it },
-                                valueRange = 0f..1f,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text("Paying: ${(simulatedPaymentFraction * 100).toInt()}%", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(formatBdt(simulatedPaymentAmount), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                                }
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text("Est. Finance Fee", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(formatBdt(simulatedInterestCharge), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = if (simulatedInterestCharge > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Bangladesh Bank June 2026 Circular compliance card
-                var isGuidelinesExpanded by remember { mutableStateOf(false) }
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { isGuidelinesExpanded = !isGuidelinesExpanded }
-                ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Gavel,
-                                    contentDescription = "Regulation",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = "June 2026 BB Regulations",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Icon(
-                                imageVector = if (isGuidelinesExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                                contentDescription = "Toggle",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        if (isGuidelinesExpanded) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            Text(
-                                text = "Bangladesh Bank Credit Card Directive (June 2026):",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = "• Unsecured Credit Ceiling: The combined limit for unsecured credit card loans across all banking institutions is capped strictly at BDT 40 Lakh (৳40,00,000) per individual customer.\n" +
-                                       "• Unsecured Exposure Parameters: Banking and Non-Banking Financial Institutions (NBFIs) are required to monitor customer debt-to-income ratios before issuing additional lines of credit.\n" +
-                                       "• Billing Dispute Terms: Customers have a 45-day window to file dispute claims. No interest, finance fees, or late payment penalties can be assessed on disputed transactions during the investigation period.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 16.sp
-                            )
-                        }
-                    }
-                }
-
-                // Fees & Annual redemption criteria
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Fees & Redemptions",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.CardMembership,
-                                contentDescription = "Fee",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = "Annual Fee",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                        Text(
-                            text = if (account.annualFee > 0) formatBdt(account.annualFee) else "No Fee",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    if (account.annualFee > 0) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Redeem,
-                                    contentDescription = "Waive",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Text(
-                                    text = "Waive Option",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                            Text(
-                                text = if (account.isFeeRedeemable) "Redeemable" else "Non-Redeemable",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = if (account.isFeeRedeemable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        if (account.isFeeRedeemable) {
-                            val target = account.feeRedemptionLimit
-                            val progressPercent = if (account.feeRedemptionUnit == "Spend") {
-                                val activeYearSpend = activeSpend
-                                ((activeYearSpend / target) * 100).coerceIn(0.0, 100.0)
-                            } else {
-                                0.0
-                            }
-
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Text(
-                                        text = if (account.feeRedemptionUnit == "Spend") {
-                                            "Spend requirement: Spend ${formatBdt(target)} to waive fee. Current cycle progress: ${progressPercent.toInt()}%."
-                                        } else {
-                                            "Points requirement: Accumulate ${target.toInt()} points to waive fee."
-                                        },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Bespoke Benefits & Partner Offers Expandable Panel
-                CardBenefitsSection(account = account)
-
-                // Add installment/lounge visit triggers
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { showLoungeLogDialog = true },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Outlined.FlightTakeoff, contentDescription = "Log Lounge")
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Log Lounge")
-                    }
-
-                    OutlinedButton(
-                        onClick = { showEmiLogDialog = true },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Outlined.CreditCard, contentDescription = "Add EMI")
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Add EMI")
-                    }
-                }
             }
-        }
-
-        if (showLoungeLogDialog) {
-            var loungeName by remember { mutableStateOf("") }
-            var airport by remember { mutableStateOf("") }
-            var guestsCount by remember { mutableStateOf("0") }
-
-            AlertDialog(
-                onDismissRequest = { showLoungeLogDialog = false },
-                title = { Text("Log Lounge Visit", fontWeight = FontWeight.SemiBold) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
-                            value = loungeName,
-                            onValueChange = { loungeName = it },
-                            label = { Text("Lounge Name") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = airport,
-                            onValueChange = { airport = it },
-                            label = { Text("Airport Code (e.g. DAC)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = guestsCount,
-                            onValueChange = { guestsCount = it.filter { char -> char.isDigit() } },
-                            label = { Text("Accompanying Guests") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        if (loungeName.isBlank() || airport.isBlank()) {
-                            Toast.makeText(context, "Fill in all fields.", Toast.LENGTH_SHORT).show()
-                        } else {
-                            val guests = guestsCount.toIntOrNull() ?: 0
-                            viewModel.addLoungeVisit(account.id, loungeName.trim(), airport.uppercase().trim(), System.currentTimeMillis(), guests)
-                            showLoungeLogDialog = false
-                        }
-                    }) {
-                        Text("Log Visit", fontWeight = FontWeight.Bold)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showLoungeLogDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
-
-        if (showEmiLogDialog) {
-            var merchant by remember { mutableStateOf("") }
-            var totalAmount by remember { mutableStateOf("") }
-            var durationMonths by remember { mutableStateOf("6") }
-
-            AlertDialog(
-                onDismissRequest = { showEmiLogDialog = false },
-                title = { Text("Add Installment Plan", fontWeight = FontWeight.SemiBold) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
-                            value = merchant,
-                            onValueChange = { merchant = it },
-                            label = { Text("Merchant/Vendor") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = totalAmount,
-                            onValueChange = { totalAmount = it },
-                            label = { Text("Total Purchase Amount") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = durationMonths,
-                            onValueChange = { durationMonths = it.filter { char -> char.isDigit() } },
-                            label = { Text("Duration (Months)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        val total = totalAmount.toDoubleOrNull() ?: 0.0
-                        val duration = durationMonths.toIntOrNull() ?: 0
-                        if (merchant.isBlank() || total <= 0.0 || duration <= 0) {
-                            Toast.makeText(context, "Invalid input details.", Toast.LENGTH_SHORT).show()
-                        } else {
-                            val monthly = total / duration
-                            viewModel.addEmiPlan(account.id, merchant.trim(), total, monthly, duration, System.currentTimeMillis())
-                            showEmiLogDialog = false
-                        }
-                    }) {
-                        Text("Create Plan", fontWeight = FontWeight.Bold)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showEmiLogDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
-
-        if (showScanDialog) {
-            ScanSmsDialog(
-                account = account,
-                viewModel = viewModel,
-                onDismiss = { showScanDialog = false }
-            )
         }
     } else {
         // Assets Account details: bank/MFS/cash
@@ -1090,18 +662,6 @@ fun SelectedAccountDetailsView(
             .filter { it.sourceAccountId == account.id || it.destinationAccountId == account.id }
             .sortedByDescending { it.date }
             .take(5)
-
-        var showScanDialog by remember { mutableStateOf(false) }
-
-        val permissionLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            if (isGranted) {
-                showScanDialog = true
-            } else {
-                Toast.makeText(context, "SMS read permission denied.", Toast.LENGTH_SHORT).show()
-            }
-        }
 
         Card(
             modifier = modifier
@@ -1145,52 +705,6 @@ fun SelectedAccountDetailsView(
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text("Total Outflow", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(formatBdt(monthExpense), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                }
-
-                // SMS Scanning for bKash/Bank
-                if (account.smsSender.isNotEmpty()) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Sms,
-                                    contentDescription = "SMS Scan",
-                                    tint = MaterialTheme.colorScheme.secondary
-                                )
-                                Column {
-                                    Text("SMS Inbox Scanner", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                    Text("Scan alerts from ${account.smsSender}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                            Button(
-                                onClick = {
-                                    val hasReadSms = androidx.core.content.ContextCompat.checkSelfPermission(
-                                        context,
-                                        android.Manifest.permission.READ_SMS
-                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                                    if (hasReadSms) {
-                                        showScanDialog = true
-                                    } else {
-                                        permissionLauncher.launch(android.Manifest.permission.READ_SMS)
-                                    }
-                                },
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                            ) {
-                                Text("Scan", style = MaterialTheme.typography.labelMedium)
-                            }
                         }
                     }
                 }
@@ -1252,156 +766,7 @@ fun SelectedAccountDetailsView(
                 }
             }
         }
-
-        if (showScanDialog) {
-            ScanSmsDialog(
-                account = account,
-                viewModel = viewModel,
-                onDismiss = { showScanDialog = false }
-            )
-        }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ScanSmsDialog(
-    account: Account,
-    viewModel: TrackerViewModel,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val smsList = remember(account) {
-        val allSms = viewModel.scanInboxForAccountSms(context, account)
-        val existingDates = viewModel.transactions.filter { it.sourceAccountId == account.id }.map { it.date }.toSet()
-        allSms.filter { it.date !in existingDates }
-    }
-
-    val selectedSmsList = remember(smsList) {
-        smsList.map { true }.toMutableStateList()
-    }
-
-    val bdtFormatter = remember { NumberFormat.getNumberInstance(Locale("en", "IN")) }
-    fun formatBdt(amount: Double): String {
-        return "৳" + bdtFormatter.format(amount)
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Scan SMS Inbox", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = "Found ${smsList.size} new transaction alerts from sender \"${account.smsSender}\" that have not been logged yet.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                if (smsList.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().height(150.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No new transaction alerts found.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 280.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
-                    ) {
-                        LazyColumn(modifier = Modifier.fillMaxSize().padding(6.dp)) {
-                            itemsIndexed(smsList) { idx, sms ->
-                                val dateStr = SimpleDateFormat("MMM d, yyyy HH:mm", Locale.US).format(Date(sms.date))
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            selectedSmsList[idx] = !selectedSmsList[idx]
-                                        }
-                                        .padding(vertical = 8.dp, horizontal = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Checkbox(
-                                        checked = selectedSmsList[idx],
-                                        onCheckedChange = { checked ->
-                                            selectedSmsList[idx] = checked
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = "${sms.merchant}: ${formatBdt(sms.amount)}",
-                                            fontWeight = FontWeight.SemiBold,
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                        Text(
-                                            text = "$dateStr • ${sms.category}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    var importCount = 0
-                    smsList.forEachIndexed { idx, sms ->
-                        if (selectedSmsList[idx]) {
-                            val bodyLower = sms.body.lowercase(Locale.US)
-                            val transactionType = if (bodyLower.contains("received") || 
-                                                     bodyLower.contains("credited") || 
-                                                     bodyLower.contains("deposit") || 
-                                                     bodyLower.contains("cash in") ||
-                                                     bodyLower.contains("ref:")) {
-                                TransactionType.INCOME
-                            } else {
-                                TransactionType.EXPENSE
-                            }
-
-                            viewModel.addTransaction(
-                                type = transactionType,
-                                sourceAccountId = account.id,
-                                destinationAccountId = null,
-                                amount = sms.amount,
-                                category = sms.category,
-                                description = "Auto SMS: ${sms.merchant}",
-                                date = sms.date,
-                                currency = "BDT",
-                                exchangeRate = 1.0
-                            )
-                            importCount++
-                        }
-                    }
-                    Toast.makeText(context, "Imported $importCount transaction(s).", Toast.LENGTH_SHORT).show()
-                    onDismiss()
-                },
-                enabled = smsList.isNotEmpty() && selectedSmsList.any { it }
-            ) {
-                Text("Import Selected", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
-        }
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1418,117 +783,97 @@ fun QuickLogTransactionDialog(
     var selectedDestId by remember { mutableStateOf(accounts.firstOrNull { it.id != preSelectedAccountId }?.id ?: "") }
     
     var amountText by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(if (type == TransactionType.INCOME) "Salary" else "Food & Dining") }
+    var categoryText by remember { mutableStateOf("Food") }
+    var descriptionText by remember { mutableStateOf("") }
 
-    val categories = if (type == TransactionType.INCOME) {
-        listOf("Salary", "Freelance", "Investment", "Gift", "Others")
-    } else {
-        listOf("Food & Dining", "Groceries", "Transportation", "Shopping", "Utilities", "Healthcare", "Education", "Entertainment", "Others")
-    }
+    val categories = listOf("Food", "Shopping", "Utilities", "Salary", "Entertainment", "Bills", "Rent", "Other")
 
-    var showSourceDropdown by remember { mutableStateOf(false) }
-    var showDestDropdown by remember { mutableStateOf(false) }
-    var showCatDropdown by remember { mutableStateOf(false) }
+    var expandedSource by remember { mutableStateOf(false) }
+    var expandedDest by remember { mutableStateOf(false) }
+    var expandedCategory by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = when (type) {
-                    TransactionType.EXPENSE -> "Log Expense"
-                    TransactionType.INCOME -> "Log Income"
-                    TransactionType.TRANSFER -> "Transfer Funds"
-                },
+                text = "Log ${type.name.lowercase().replaceFirstChar { it.titlecase() }}",
                 fontWeight = FontWeight.Bold
             )
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Source account selection
-                val srcAccount = accounts.find { it.id == selectedSourceId } ?: accounts.firstOrNull()
-                selectedSourceId = srcAccount?.id ?: ""
-                
-                Text(
-                    text = when (type) {
-                        TransactionType.EXPENSE -> "Charged Account"
-                        TransactionType.INCOME -> "Destination Account"
-                        TransactionType.TRANSFER -> "From Account"
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold
+                // Amount
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("Amount") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
+
+                // Source Account
                 Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(
-                        onClick = { showSourceDropdown = true },
+                    OutlinedTextField(
+                        value = accounts.firstOrNull { it.id == selectedSourceId }?.let { "${it.bank} - ${it.name}" } ?: "Select Account",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(if (type == TransactionType.TRANSFER) "From Account" else "Account") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(srcAccount?.let { "${it.bank} - ${it.name}" } ?: "Select Account", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown")
+                        trailingIcon = {
+                            IconButton(onClick = { expandedSource = true }) {
+                                Icon(Icons.Outlined.ArrowDropDown, contentDescription = null)
+                            }
                         }
-                    }
+                    )
                     DropdownMenu(
-                        expanded = showSourceDropdown,
-                        onDismissRequest = { showSourceDropdown = false },
-                        modifier = Modifier.fillMaxWidth(0.8f)
+                        expanded = expandedSource,
+                        onDismissRequest = { expandedSource = false },
+                        modifier = Modifier.fillMaxWidth(0.9f)
                     ) {
-                        accounts.forEach { account ->
+                        accounts.forEach { acc ->
                             DropdownMenuItem(
-                                text = { Text("${account.bank} - ${account.name}") },
+                                text = { Text("${acc.bank} - ${acc.name} (${acc.accountType.name.replace("_", " ")})") },
                                 onClick = {
-                                    selectedSourceId = account.id
-                                    showSourceDropdown = false
+                                    selectedSourceId = acc.id
+                                    expandedSource = false
                                 }
                             )
                         }
                     }
                 }
 
-                // Destination account selection (only for transfer)
+                // Destination Account (for transfers)
                 if (type == TransactionType.TRANSFER) {
-                    val destAccount = accounts.find { it.id == selectedDestId } ?: accounts.firstOrNull { it.id != selectedSourceId }
-                    selectedDestId = destAccount?.id ?: ""
-
-                    Text(
-                        text = "To Account",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
                     Box(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedButton(
-                            onClick = { showDestDropdown = true },
+                        OutlinedTextField(
+                            value = accounts.firstOrNull { it.id == selectedDestId }?.let { "${it.bank} - ${it.name}" } ?: "Select Destination",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("To Account") },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(destAccount?.let { "${it.bank} - ${it.name}" } ?: "Select Account", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown")
+                            trailingIcon = {
+                                IconButton(onClick = { expandedDest = true }) {
+                                    Icon(Icons.Outlined.ArrowDropDown, contentDescription = null)
+                                }
                             }
-                        }
+                        )
                         DropdownMenu(
-                            expanded = showDestDropdown,
-                            onDismissRequest = { showDestDropdown = false },
-                            modifier = Modifier.fillMaxWidth(0.8f)
+                            expanded = expandedDest,
+                            onDismissRequest = { expandedDest = false },
+                            modifier = Modifier.fillMaxWidth(0.9f)
                         ) {
-                            accounts.filter { it.id != selectedSourceId }.forEach { account ->
+                            accounts.filter { it.id != selectedSourceId }.forEach { acc ->
                                 DropdownMenuItem(
-                                    text = { Text("${account.bank} - ${account.name}") },
+                                    text = { Text("${acc.bank} - ${acc.name}") },
                                     onClick = {
-                                        selectedDestId = account.id
-                                        showDestDropdown = false
+                                        selectedDestId = acc.id
+                                        expandedDest = false
                                     }
                                 )
                             }
@@ -1536,87 +881,63 @@ fun QuickLogTransactionDialog(
                     }
                 }
 
-                // Amount
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = { amountText = it },
-                    label = { Text("Amount (BDT)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Category selection (only for expense/income)
-                if (type != TransactionType.TRANSFER) {
-                    Text(
-                        text = "Category",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedButton(
-                            onClick = { showCatDropdown = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(category)
-                                Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dropdown")
+                // Category selection dropdown
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = categoryText,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Category") },
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            IconButton(onClick = { expandedCategory = true }) {
+                                Icon(Icons.Outlined.ArrowDropDown, contentDescription = null)
                             }
                         }
-                        DropdownMenu(
-                            expanded = showCatDropdown,
-                            onDismissRequest = { showCatDropdown = false },
-                            modifier = Modifier.fillMaxWidth(0.8f)
-                        ) {
-                            categories.forEach { cat ->
-                                DropdownMenuItem(
-                                    text = { Text(cat) },
-                                    onClick = {
-                                        category = cat
-                                        showCatDropdown = false
-                                    }
-                                )
-                            }
+                    )
+                    DropdownMenu(
+                        expanded = expandedCategory,
+                        onDismissRequest = { expandedCategory = false }
+                    ) {
+                        categories.forEach { cat ->
+                            DropdownMenuItem(
+                                text = { Text(cat) },
+                                onClick = {
+                                    categoryText = cat
+                                    expandedCategory = false
+                                }
+                            )
                         }
                     }
                 }
 
                 // Description
                 OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Description / Vendor") },
+                    value = descriptionText,
+                    onValueChange = { descriptionText = it },
+                    label = { Text("Description") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = {
                     val amount = amountText.toDoubleOrNull() ?: 0.0
-                    if (amount <= 0.0) {
-                        Toast.makeText(context, "Please enter a valid amount.", Toast.LENGTH_SHORT).show()
-                    } else if (selectedSourceId.isEmpty()) {
-                        Toast.makeText(context, "Please select an account.", Toast.LENGTH_SHORT).show()
-                    } else if (type == TransactionType.TRANSFER && selectedDestId.isEmpty()) {
-                        Toast.makeText(context, "Please select a destination account.", Toast.LENGTH_SHORT).show()
+                    if (amount <= 0.0 || selectedSourceId.isEmpty()) {
+                        Toast.makeText(context, "Please enter valid amount.", Toast.LENGTH_SHORT).show()
+                    } else if (type == TransactionType.TRANSFER && selectedSourceId == selectedDestId) {
+                        Toast.makeText(context, "Source and destination cannot be same.", Toast.LENGTH_SHORT).show()
                     } else {
                         viewModel.addTransaction(
                             type = type,
                             sourceAccountId = selectedSourceId,
                             destinationAccountId = if (type == TransactionType.TRANSFER) selectedDestId else null,
                             amount = amount,
-                            category = if (type == TransactionType.TRANSFER) "Transfer" else category,
-                            description = description.trim(),
-                            date = System.currentTimeMillis(),
-                            currency = "BDT",
-                            exchangeRate = 1.0
+                            category = categoryText,
+                            description = descriptionText.trim(),
+                            date = System.currentTimeMillis()
                         )
                         onDismiss()
                     }
@@ -1631,338 +952,4 @@ fun QuickLogTransactionDialog(
             }
         }
     )
-}
-
-fun detectPresetCard(bank: String, name: String, tier: String, type: String): String? {
-    val b = bank.lowercase()
-    val n = name.lowercase()
-    val t = tier.lowercase()
-    val ty = type.lowercase()
-    return when {
-        b.contains("brac") && (n.contains("flexi") || (t.contains("platinum") && ty.contains("visa"))) -> "brac_flexi"
-        b.contains("brac") && (n.contains("diners") || t.contains("emerald") || ty.contains("diners")) -> "brac_diners"
-        (b.contains("eastern") || b.contains("ebl")) && (n.contains("sharetrip") || (t.contains("titanium") && ty.contains("mastercard"))) -> "ebl_sharetrip"
-        (b.contains("eastern") || b.contains("ebl")) && (n.contains("stellar") || t.contains("stellar") || (t.contains("platinum") && ty.contains("visa"))) -> "ebl_stellar"
-        else -> null
-    }
-}
-
-@Composable
-fun CardBenefitsSection(account: Account) {
-    val presetKey = detectPresetCard(account.bank, account.name, account.safeCardTier, account.safeCardType) ?: return
-    var isExpanded by remember { mutableStateOf(false) }
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { isExpanded = !isExpanded }
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CardMembership,
-                        contentDescription = "Benefits",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "Bespoke Benefits & Partner Offers",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Icon(
-                    imageVector = if (isExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                    contentDescription = "Toggle",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            if (isExpanded) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                
-                when (presetKey) {
-                    "brac_flexi" -> {
-                        BenefitItem(
-                            icon = Icons.Outlined.FlightTakeoff,
-                            title = "Airport Lounge Privileges",
-                            description = "• Unlimited complimentary access to Balaka Executive Lounge at Hazrat Shahjalal International Airport, Dhaka (for cardholder).\n• LoungeKey international access (chargeable at USD 29 per person per visit)."
-                        )
-                        BenefitItem(
-                            icon = Icons.Outlined.Redeem,
-                            title = "Reward System",
-                            description = "• 1 reward point per BDT 80 spent.\n• 2x Reward Points on all local & international POS and e-commerce transactions on Fridays."
-                        )
-                        BenefitItem(
-                            icon = Icons.Outlined.Restaurant,
-                            title = "Dining & Hotels",
-                            description = "• Buy-1-Get-1 (BOGO) buffet offers at Six Seasons, Amari Dhaka, and other partner hotels.\n• 25% off dining at Six Seasons Hotel, Dera Resort BOGO, and 10% off at Gourmet & Grace."
-                        )
-                        BenefitItem(
-                            icon = Icons.Outlined.ShoppingBag,
-                            title = "Travel & Welcome Offers",
-                            description = "• Welcome gift: BDT 2,000 ShareTrip voucher.\n• Convert retail transactions of BDT 15,000+ to 6 months 0% EMI via Super P@yflex."
-                        )
-                    }
-                    "brac_diners" -> {
-                        BenefitItem(
-                            icon = Icons.Outlined.FlightTakeoff,
-                            title = "Airport Lounge Privileges",
-                            description = "• Unlimited complimentary access to Balaka Executive Lounge, Dhaka for cardholder + 1 guest.\n• 3 complimentary visits per year to over 1,500+ Diners Club international lounges globally (USD 29/visit thereafter)."
-                        )
-                        BenefitItem(
-                            icon = Icons.Outlined.Redeem,
-                            title = "Reward System & Cashback",
-                            description = "• 2 reward points per BDT 80 spent.\n• 2x reward points on travel (ShareTrip, GoZayaan, Bdtickets, Shohoz) and international e-commerce on Thursdays.\n• 5% cashback (up to BDT 300 monthly) on Cooper's, Gloria Jean's, and Herfy."
-                        )
-                        BenefitItem(
-                            icon = Icons.Outlined.Restaurant,
-                            title = "Dining & Hotels",
-                            description = "• Premium BOGO, Buy-1-Get-2 (BOG2), and Buy-1-Get-3 (BOG3) buffet offers at Renaissance, Amari, Le Meridien, etc.\n• Cashback and discounts at Chef’s Table, foodpanda, and foodi."
-                        )
-                        BenefitItem(
-                            icon = Icons.Outlined.ShoppingBag,
-                            title = "Travel & Welcome Offers",
-                            description = "• Welcome vouchers: Artisan, GoZayaan, and Square Hospitals.\n• Smart P@yflex: 12-month EMI at 7% interest for BDT 15,000+ purchases; 0% EMI at 1,400+ partner merchants."
-                        )
-                    }
-                    "ebl_sharetrip" -> {
-                        BenefitItem(
-                            icon = Icons.Outlined.FlightTakeoff,
-                            title = "Airport Lounge Privileges",
-                            description = "• Unlimited complimentary access to EBL SKYLOUNGE at Dhaka and Chattogram (Domestic terminal).\n• LoungeKey access to 1,100+ global lounges."
-                        )
-                        BenefitItem(
-                            icon = Icons.Outlined.Redeem,
-                            title = "Travel Coins & Points",
-                            description = "• 2x TripCoins on ShareTrip transactions.\n• 2x SkyCoins on cross-border transactions."
-                        )
-                        BenefitItem(
-                            icon = Icons.Outlined.Restaurant,
-                            title = "Dining Perks",
-                            description = "• Mastercard campaign BOGO dining deals (e.g. during Ramadan & festive campaigns).\n• EBL Advantage discounts (up to 20% off) at participating local restaurants."
-                        )
-                        BenefitItem(
-                            icon = Icons.Outlined.ShoppingBag,
-                            title = "Travel Discounts & Vouchers",
-                            description = "• 15% discount on base fares of Biman Bangladesh Airlines, US-Bangla, NOVOAIR, and Air Astra booked via ShareTrip.\n• BDT 5,000 worth of holiday vouchers (Maldives, Singapore, Europe, etc.).\n• Zero annual renewal fee with 24 transactions in a year."
-                        )
-                    }
-                    "ebl_stellar" -> {
-                        BenefitItem(
-                            icon = Icons.Outlined.FlightTakeoff,
-                            title = "Airport Lounge Privileges",
-                            description = "• 6 complimentary visits per year to EBL SKYLOUNGE (Dhaka & Chattogram) for cardholder + 2 children under 12.\n• Priority Pass international access to 1,300+ global lounges."
-                        )
-                        BenefitItem(
-                            icon = Icons.Outlined.Redeem,
-                            title = "Rewards Program",
-                            description = "• 1.5 points per BDT 50 spend (redeemable for Visa SkyCoins)."
-                        )
-                        BenefitItem(
-                            icon = Icons.Outlined.Restaurant,
-                            title = "Dining & Hotels",
-                            description = "• Visa Platinum dining privileges and up to 20% off at premium restaurants via EBL Discount Partners."
-                        )
-                        BenefitItem(
-                            icon = Icons.Outlined.ShoppingBag,
-                            title = "Travel & VIP Services",
-                            description = "• Meet & Greet Service: Personal fast-track assistance at Hazrat Shahjalal International Airport (Dhaka) check-in & arrival.\n• ShareTrip offers: 15% off international flight base fares, extra 6% off (up to BDT 5,000), and 10% off hotels.\n• BDT 1,500 lifestyle vouchers on card issuance.\n• Free travel insurance & baggage protection."
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun BenefitItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    description: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = title,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp).padding(top = 2.dp)
-        )
-        Column {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 16.sp
-            )
-        }
-    }
-}
-
-@Composable
-fun WeeklyFlowBentoCard(
-    viewModel: TrackerViewModel,
-    modifier: Modifier = Modifier
-) {
-    val transactions = viewModel.transactions
-    
-    // We calculate the outflow for each of the last 7 days (today is index 6)
-    val dailyExpenses = remember(transactions) {
-        val expenses = DoubleArray(7)
-        for (i in 0..6) {
-            val checkCal = Calendar.getInstance()
-            checkCal.add(Calendar.DAY_OF_YEAR, -i)
-            val year = checkCal.get(Calendar.YEAR)
-            val dayOfYear = checkCal.get(Calendar.DAY_OF_YEAR)
-            
-            val totalForDay = transactions.filter { tx ->
-                if (tx.type == TransactionType.EXPENSE) {
-                    val txCal = Calendar.getInstance().apply { timeInMillis = tx.date }
-                    txCal.get(Calendar.YEAR) == year && txCal.get(Calendar.DAY_OF_YEAR) == dayOfYear
-                } else false
-            }.sumOf { tx -> tx.amount * tx.exchangeRate }
-            
-            expenses[6 - i] = totalForDay
-        }
-        expenses
-    }
-    
-    val dayLabels = remember {
-        val labels = arrayOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-        val orderedLabels = Array(7) { "" }
-        for (i in 0..6) {
-            val checkCal = Calendar.getInstance()
-            checkCal.add(Calendar.DAY_OF_YEAR, -i)
-            val dayIdx = (checkCal.get(Calendar.DAY_OF_WEEK) + 5) % 7 // Align Sunday (1) / Monday (2) to 0..6
-            orderedLabels[6 - i] = labels[dayIdx]
-        }
-        orderedLabels
-    }
-
-    val maxExpense = dailyExpenses.maxOrNull()?.coerceAtLeast(100.0) ?: 100.0
-    val totalWeeklyExpense = dailyExpenses.sum()
-    
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .vaultGlass(borderRadius = 28.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column {
-                    Text(
-                        text = "Weekly Flow",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Outflow trends (last 7 days)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    BdtText(
-                        amount = totalWeeklyExpense,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "Total Spent",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Canvas Bar Chart
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp)
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                dailyExpenses.forEachIndexed { index, expenseVal ->
-                    val heightFraction = (expenseVal / maxExpense).toFloat().coerceIn(0.05f, 1f)
-                    val label = dayLabels[index]
-                    val isToday = index == 6 // Rightmost is always today
-
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        // The actual bar
-                        val barBrush = if (isToday) {
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.primary,
-                                    MaterialTheme.colorScheme.primaryContainer
-                                )
-                            )
-                        } else {
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f),
-                                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f)
-                                )
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                                .background(barBrush)
-                                .fillMaxHeight(heightFraction)
-                        )
-                        // Day Label
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-    }
 }

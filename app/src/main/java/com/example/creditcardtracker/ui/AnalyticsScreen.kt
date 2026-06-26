@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.animation.core.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +45,16 @@ fun AnalyticsScreen(
 ) {
     val transactions = viewModel.transactions
     val scrollState = rememberScrollState()
+
+    var animationPlayed by remember { mutableStateOf(false) }
+    val progress by animateFloatAsState(
+        targetValue = if (animationPlayed) 1f else 0f,
+        animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+        label = "ChartAnimation"
+    )
+    LaunchedEffect(key1 = true) {
+        animationPlayed = true
+    }
 
     // 1. Calculate cashflow of the last 6 months
     val monthlyCashflowList = remember(transactions) {
@@ -157,8 +168,8 @@ fun AnalyticsScreen(
                     verticalAlignment = Alignment.Bottom
                 ) {
                     monthlyCashflowList.forEach { flow ->
-                        val incFraction = (flow.income / maxVal).toFloat().coerceIn(0.02f, 1f)
-                        val expFraction = (flow.expense / maxVal).toFloat().coerceIn(0.02f, 1f)
+                        val incFraction = ((flow.income / maxVal).toFloat() * progress).coerceIn(0.02f, 1f)
+                        val expFraction = ((flow.expense / maxVal).toFloat() * progress).coerceIn(0.02f, 1f)
 
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -282,7 +293,7 @@ fun AnalyticsScreen(
                             ) {
                                 var startAngle = -90f
                                 spendByCategory.forEachIndexed { idx, amount ->
-                                    val sweepAngle = (amount / totalSpending).toFloat() * 360f
+                                    val sweepAngle = (amount / totalSpending).toFloat() * 360f * progress
                                     if (sweepAngle > 0f) {
                                         val isSelected = categories[idx] == selectedCategory
                                         val color = categoryColors[idx]
